@@ -647,7 +647,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	//Итератор
 
 	//Для получаения count мы вынуждаем систему скачать все данные до конца.
-	function count() //DONE
+	function count() : int //DONE
 	{
 		if ($this->queryReady===false) {
 			$this->fetch_data_now();
@@ -665,13 +665,13 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	}
 
 
-	function current() //DONE
+	function current():mixed //DONE
 	{
 		return $this;
 	}
 
 	//не делаем fetch, пока не понадобились данные. Если курсор обгорит fetch на несколько шагов, fetch будет сделан несколько раз. До тех пор он ленивый.
-	function next() //DONE
+	function next():void //DONE
 	{
 
 		if(!$this->_is_sliced){
@@ -687,7 +687,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		}
 	}
 
-	function valid() //DONE
+	function valid():bool //DONE
 	{
 
 		if ($this->queryReady===false) {
@@ -734,12 +734,12 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 	}
 
-	function key()
+	function key():mixed
 	{
 		return $this->_cursor;
 	}
 
-	function rewind() //DONE
+	function rewind():void //DONE
 	{
 
 		if(!$this->_is_sliced){
@@ -755,7 +755,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 	}
 
-	function offsetGet( $index ) //DONE
+	function offsetGet( mixed $index ): mixed //DONE
 	{
 		if(is_numeric($index)){
 			$this->_cursor = $index;
@@ -765,7 +765,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		}
 	}
 
-	function offsetExists($offset) {
+	function offsetExists(mixed $offset): bool {
 		if ($this->queryReady===false) {
 			$this->fetch_data_now();
 		} //FIXME: а если фетч не прошёл?...
@@ -773,7 +773,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	}
 
 
-	function offsetSet($offset, $value) {
+	function offsetSet(mixed $offset, mixed $value):void {
         if (is_null($offset)) {
             //ничего пока не делать
         } else {
@@ -796,7 +796,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 			}
 		}
 	}
-	function offsetUnset($offset) {
+	function offsetUnset(mixed $offset):void {
 		//unset($this->_data[$this->_cursor]);
 		//Я этого делать не буду. Пока. //FIXME, наверное $user->name = "вася"; unset($user->name); должен отменять присваивание. А в случае поиска и изменении - записывать в базу null;. Надо подумать про числовые и буквенные ансеты.
 	}

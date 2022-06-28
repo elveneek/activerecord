@@ -3,7 +3,7 @@ namespace elveneek;
 class PDOProxy extends \PDO {
 
 
-	public function prepare($statement, $driver_options = array())
+	public function prepare(string $statement, array $driver_options = []):  \PDOStatement|false
 	{
 		try {
 			return parent::prepare($statement, $driver_options);
@@ -49,7 +49,7 @@ class PDOProxy extends \PDO {
 
 
 
-	public function query($statement, ?int $fetchMode = null, ...$fetch_mode_args)
+	public function query($statement, ?int $fetchMode = null, ...$fetch_mode_args): \PDOStatement|false
 	{
 		try {
 			if($fetchMode===null){
@@ -70,7 +70,7 @@ class PDOProxy extends \PDO {
 	
 	
 	
-	public function exec($statement)
+	public function exec(string $statement):int|false
 	{
 		try {
 			return parent::exec($statement);
