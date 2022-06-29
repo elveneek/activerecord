@@ -7,7 +7,7 @@ class PDOProxy extends \PDO {
 	{
 		try {
 			return parent::prepare($statement, $driver_options);
-		} catch  (PDOException $exception) {
+		} catch  (\PDOException $exception) {
 			if($exception->getCode() == 'HY000' && $exception->errorInfo[1]==2006){
 				ActiveRecord::$db = ActiveRecord::connect();
 				return ActiveRecord::$db->prepare($statement, $driver_options);
@@ -30,8 +30,8 @@ class PDOProxy extends \PDO {
 			}
 		}catch  (PDOException $exception) {
 			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
-				App::$instance->db = ActiveRecord::connect();
-				return call_user_func_array(array(App::$instance->db, 'query'), func_get_args());
+				ActiveRecord::$db = ActiveRecord::connect();
+				return call_user_func_array(array(ActiveRecord::$db, 'query'), func_get_args());
 			}
 			throw $exception;
 		}
@@ -57,10 +57,10 @@ class PDOProxy extends \PDO {
 			} else{
 				$result = parent::query($statement, $fetchMode,  ...$fetch_mode_args);
 			}
-		}catch  (PDOException $exception) {
+		}catch  (\PDOException $exception) {
 			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
 				ActiveRecord::$db = ActiveRecord::connect();
-				return call_user_func_array(array(App::$instance->db, 'query'), func_get_args());
+				return call_user_func_array(array(ActiveRecord::$db, 'query'), func_get_args());
 			}
 			throw $exception;
 		}
@@ -74,7 +74,7 @@ class PDOProxy extends \PDO {
 	{
 		try {
 			return parent::exec($statement);
-		} catch  (PDOException $exception) {
+		} catch  (\PDOException $exception) {
 			if($exception->getCode() == 'HY000' && $exception->errorInfo[1]==2006){
 				ActiveRecord::$db = ActiveRecord::connect();
 				return ActiveRecord::$db->exec($statement);

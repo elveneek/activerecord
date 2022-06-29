@@ -86,7 +86,7 @@ trait ActiveRecordLinked {//DONE
 		$antireqursy = 0;
 		$results = array();
 		$current_step = $this;
-		while (!$current_step->is_empty && $antireqursy < 100){
+		while (!$current_step->isEmpty && $antireqursy < 100){
 			$results = array_merge($results, $current_step->fast_all_of('id'));
 			//$results = array_merge( $current_step->fast_all_of('id'),$results);
 			$current_step = $current_step->linked($what);

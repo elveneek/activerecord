@@ -9,7 +9,7 @@ trait ActiveRecordInlineQueries {
 	{
 		//FIXME: а если упадёт?
 		//FIXME: вынести всё вычисляемое в отдельный трейт
-		$_count_result = App::$instance->db->query("SELECT COUNT(*) as counting FROM ".$this->table)->fetch();
+		$_count_result = ActiveRecord::$db->query("SELECT COUNT(*) as counting FROM ".$this->table)->fetch();
 		return $_count_result->counting;
 	}
 	
@@ -32,7 +32,7 @@ trait ActiveRecordInlineQueries {
 		}
 			
 		if(isset($this->_data[0])){
-			$_query_string='delete from '.DB_FIELD_DEL.''.$this->_options['table'] . DB_FIELD_DEL." where ".DB_FIELD_DEL."id".DB_FIELD_DEL." = '".$this->_data[0]['id']."'";
+			$_query_string='delete from '.ActiveRecord::DB_FIELD_DEL.''.$this->_options['table'] . ActiveRecord::DB_FIELD_DEL." where ".ActiveRecord::DB_FIELD_DEL."id".ActiveRecord::DB_FIELD_DEL." = '".$this->_data[0]['id']."'";
 			doitClass::$instance->db->exec($_query_string);
 		}
 		ActiveRecord::$_queries_cache = array();

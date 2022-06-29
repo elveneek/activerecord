@@ -61,21 +61,21 @@ trait ActiveRecordSave {
 			$fields=array();
 			$values=array();
 			foreach($this->_future_data as $key => $value) {
-				$fields[]=" ".DB_FIELD_DEL . $key . DB_FIELD_DEL." ";
+				$fields[]=" ".ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL." ";
 				
 				if(SQL_NULL === $value || (substr($key,-3)=='_id' && !$value && $value !== '0' && $value !== 0)){
 					$values[]=" NULL ";
 				}else{
-					$values[]=" ". App::$instance->db->quote ($value)." ";
+					$values[]=" ". ActiveRecord::$db->quote ($value)." ";
 				}
 				
 			}
   
 			if(!empty($values)){
 				//FIXME: Транзакции
-				$_query_string='insert into '.DB_FIELD_DEL.$this->table .DB_FIELD_DEL.' ('. implode (',',$fields) .') values ('. implode (',',$values) .')';
+				$_query_string='insert into '.ActiveRecord::DB_FIELD_DEL.$this->table .ActiveRecord::DB_FIELD_DEL.' ('. implode (',',$fields) .') values ('. implode (',',$values) .')';
 			}else{
-				$_query_string='insert into '.DB_FIELD_DEL.$this->table .DB_FIELD_DEL.' () values ()';
+				$_query_string='insert into '.ActiveRecord::DB_FIELD_DEL.$this->table .ActiveRecord::DB_FIELD_DEL.' () values ()';
 			}
 		
 			
@@ -104,21 +104,21 @@ trait ActiveRecordSave {
 				foreach($this->_future_data as $key => $value) {
 
 					if(SQL_NULL === $value  || (substr($key,-3)=='_id' && !$value && $value !== '0' && $value !== 0)){
-						$attributes[]=" ". DB_FIELD_DEL . $key. DB_FIELD_DEL ." = NULL ";
+						$attributes[]=" ". ActiveRecord::DB_FIELD_DEL . $key. ActiveRecord::DB_FIELD_DEL ." = NULL ";
 					}else{
-						$attributes[]=" ". DB_FIELD_DEL . $key. DB_FIELD_DEL ." = ". App::$instance->db->quote($value)." ";
+						$attributes[]=" ". ActiveRecord::DB_FIELD_DEL . $key. ActiveRecord::DB_FIELD_DEL ." = ". ActiveRecord::$db->quote($value)." ";
 					}
 					
 				}
 				$attribute_string=implode (',',$attributes);
-				$_query_string='update '.DB_FIELD_DEL. $this->table .DB_FIELD_DEL.' set '.$attribute_string.", ". DB_FIELD_DEL ."updated_at". DB_FIELD_DEL ." = NOW()  where ". DB_FIELD_DEL ."id". DB_FIELD_DEL ." = '". $current_id ."'";
+				$_query_string='update '.ActiveRecord::DB_FIELD_DEL. $this->table .ActiveRecord::DB_FIELD_DEL.' set '.$attribute_string.", ". ActiveRecord::DB_FIELD_DEL ."updated_at". ActiveRecord::DB_FIELD_DEL ." = NOW()  where ". ActiveRecord::DB_FIELD_DEL ."id". ActiveRecord::DB_FIELD_DEL ." = '". $current_id ."'";
 			}
 		}
 		
 		try {
 			//делается попытка сделать запрос
 			if($_query_string !==''){
-				$_query_result = App::$instance->db->exec($_query_string);
+				$_query_result = ActiveRecord::$db->exec($_query_string);
 			}
 		}catch  (PDOException $exception) {
 			
@@ -127,7 +127,7 @@ trait ActiveRecordSave {
 				//Столбец не нашёлся при записи.
 				
 				//смотрим существующие столбцы в обход кеша столбцов
-				$_res=App::$instance->db->query('SELECT * FROM '.DB_FIELD_DEL.$this->table.DB_FIELD_DEL.' LIMIT 0');
+				$_res=ActiveRecord::$db->query('SELECT * FROM '.ActiveRecord::DB_FIELD_DEL.$this->table.ActiveRecord::DB_FIELD_DEL.' LIMIT 0');
 				$columns  = [];
 				$columns_count = $_res->columnCount();
 				for($i=0; $i<=$columns_count-1; $i++){
@@ -155,12 +155,12 @@ trait ActiveRecordSave {
 
 				
 				//Делаем повторный запрос
-				$_query_result = App::$instance->db->exec($_query_string);
+				$_query_result = ActiveRecord::$db->exec($_query_string);
 				
 			}elseif($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
 				//Переподключаемся и делаем повторный запрос
-				App::$instance->db = ActiveRecord::connect();
-				$_query_result = App::$instance->db->exec($_query_string);
+				ActiveRecord::$db = ActiveRecord::connect();
+				$_query_result = ActiveRecord::$db->exec($_query_string);
 			}elseif(  $exception->errorInfo[1]===1064){
 				//Переподключаемся и делаем повторный запрос
 				throw new Exception('Wrong SQL query: '.$_query_string);
@@ -171,29 +171,29 @@ trait ActiveRecordSave {
 		
 		//После сохранения запись перезаписывается повторно, делается update sord/updated_at/created_at
 		if($this->queryNew===true) {
-			$this->insert_id = App::$instance->db->lastInsertId();
+			$this->insert_id = ActiveRecord::$db->lastInsertId();
 			$current_id = $this->insert_id;
 			
 			$_query_fields = array();
 			if (empty($this->_future_data["sort"])) {
-				$_query_fields[] = DB_FIELD_DEL ."sort". DB_FIELD_DEL ." = '".$this->insert_id."'";
+				$_query_fields[] = ActiveRecord::DB_FIELD_DEL ."sort". ActiveRecord::DB_FIELD_DEL ." = '".$this->insert_id."'";
 			}
 			if (empty($this->_future_data["created_at"])) {
-				$_query_fields[] = DB_FIELD_DEL ."created_at". DB_FIELD_DEL ." = NOW()";
+				$_query_fields[] = ActiveRecord::DB_FIELD_DEL ."created_at". ActiveRecord::DB_FIELD_DEL ." = NOW()";
 			}
 			if (empty($this->_future_data["updated_at"])) {
-				$_query_fields[] = DB_FIELD_DEL ."updated_at". DB_FIELD_DEL ." = NOW()";
+				$_query_fields[] = ActiveRecord::DB_FIELD_DEL ."updated_at". ActiveRecord::DB_FIELD_DEL ." = NOW()";
 			}
 			if (!empty($_query_fields)) {
-				$_query_string = 'update '.DB_FIELD_DEL. $this->table .DB_FIELD_DEL.' set ' . implode(', ', $_query_fields) . " where ". DB_FIELD_DEL ."id". DB_FIELD_DEL ." = '".$this->insert_id."'";
+				$_query_string = 'update '.ActiveRecord::DB_FIELD_DEL. $this->table .ActiveRecord::DB_FIELD_DEL.' set ' . implode(', ', $_query_fields) . " where ". ActiveRecord::DB_FIELD_DEL ."id". ActiveRecord::DB_FIELD_DEL ." = '".$this->insert_id."'";
 				
 				try {
-					$_query_result = App::$instance->db->exec($_query_string);
+					$_query_result = ActiveRecord::$db->exec($_query_string);
 			
-				}catch  (PDOException $exception) {
+				}catch  (\PDOException $exception) {
 					if($exception->errorInfo[1]===1054){
 						//смотрим существующие столбцы в обход кеша столбцов
-						$_res=App::$instance->db->query('SELECT sort, created_at, updated_at FROM '.DB_FIELD_DEL. $this->table . DB_FIELD_DEL . ' LIMIT 0');
+						$_res=ActiveRecord::$db->query('SELECT sort, created_at, updated_at FROM '.ActiveRecord::DB_FIELD_DEL. $this->table . ActiveRecord::DB_FIELD_DEL . ' LIMIT 0');
 						$columns  = [];
 						$columns_count = $_res->columnCount();
 						for($i=0; $i<=$columns_count-1; $i++){
@@ -206,7 +206,7 @@ trait ActiveRecordSave {
 								$isAlmostOneColumnCreated = true;
 							}
 						}
-						$_query_result = App::$instance->db->exec($_query_string);
+						$_query_result = ActiveRecord::$db->exec($_query_string);
 					}else{
 						throw $exception;
 					}
@@ -272,13 +272,13 @@ trait ActiveRecordSave {
 			}
 			//1.удаляем существующие данные из таблицы
 			if(count($data)>0){
-				$_query_string='delete from '.DB_FIELD_DEL.''.$many_to_many_table . DB_FIELD_DEL." where ".DB_FIELD_DEL. $second_field .DB_FIELD_DEL." NOT IN (". implode(', ',$data) .") AND ".DB_FIELD_DEL. $first_field .DB_FIELD_DEL." =  ". e($id) . "";
+				$_query_string='delete from '.ActiveRecord::DB_FIELD_DEL.''.$many_to_many_table . ActiveRecord::DB_FIELD_DEL." where ".ActiveRecord::DB_FIELD_DEL. $second_field .ActiveRecord::DB_FIELD_DEL." NOT IN (". implode(', ',$data) .") AND ".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL." =  ". e($id) . "";
 			}else{
-				$_query_string='delete from '.DB_FIELD_DEL.''.$many_to_many_table . DB_FIELD_DEL." where ".DB_FIELD_DEL. $first_field .DB_FIELD_DEL." =  ". e($id) . "";
+				$_query_string='delete from '.ActiveRecord::DB_FIELD_DEL.''.$many_to_many_table . ActiveRecord::DB_FIELD_DEL." where ".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL." =  ". e($id) . "";
 			}
 			doitClass::$instance->db->exec($_query_string);
 			//2.добавляем нове записи в таблицу
-			$exist = doitClass::$instance->db->query("SELECT ".DB_FIELD_DEL.''.$second_field . DB_FIELD_DEL." as cln FROM ".DB_FIELD_DEL.''.$many_to_many_table . DB_FIELD_DEL."  where ".DB_FIELD_DEL. $first_field .DB_FIELD_DEL." =  ". e($id) . "")->fetchAll(PDO::FETCH_COLUMN);
+			$exist = doitClass::$instance->db->query("SELECT ".ActiveRecord::DB_FIELD_DEL.''.$second_field . ActiveRecord::DB_FIELD_DEL." as cln FROM ".ActiveRecord::DB_FIELD_DEL.''.$many_to_many_table . ActiveRecord::DB_FIELD_DEL."  where ".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL." =  ". e($id) . "")->fetchAll(PDO::FETCH_COLUMN);
 			$exist = array_flip($exist);
 
 			foreach($original_data as $second_id){
@@ -291,7 +291,7 @@ trait ActiveRecordSave {
 					if(count($second_id)>1){
 						foreach ($second_id as $key=>$value){
 							if(!is_numeric($key)){
-								$need_keys[]=DB_FIELD_DEL . $key . DB_FIELD_DEL;
+								$need_keys[]=ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL;
 								if(SQL_NULL === $value){
 									$need_values[]='NULL';
 								}else{
@@ -307,10 +307,10 @@ trait ActiveRecordSave {
 			
 				}
 				if(!isset($exist[$second_id])){
-					$_query_string='insert into '.DB_FIELD_DEL. $many_to_many_table .DB_FIELD_DEL." (".DB_FIELD_DEL. $first_field .DB_FIELD_DEL.", ".DB_FIELD_DEL. $second_field .DB_FIELD_DEL." , ".DB_FIELD_DEL."created_at".DB_FIELD_DEL.",  ".DB_FIELD_DEL."updated_at".DB_FIELD_DEL . $additional_keys . ") values (". e($id) . ",". e( $second_id) . ", NOW(), NOW() " . $additional_values . " )";
+					$_query_string='insert into '.ActiveRecord::DB_FIELD_DEL. $many_to_many_table .ActiveRecord::DB_FIELD_DEL." (".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL.", ".ActiveRecord::DB_FIELD_DEL. $second_field .ActiveRecord::DB_FIELD_DEL." , ".ActiveRecord::DB_FIELD_DEL."created_at".ActiveRecord::DB_FIELD_DEL.",  ".ActiveRecord::DB_FIELD_DEL."updated_at".ActiveRecord::DB_FIELD_DEL . $additional_keys . ") values (". e($id) . ",". e( $second_id) . ", NOW(), NOW() " . $additional_values . " )";
 					doitClass::$instance->db->exec($_query_string);
 					$insert_id = doitClass::$instance->db->lastInsertId();
-					$_query_string = 'update ' . DB_FIELD_DEL . $many_to_many_table . DB_FIELD_DEL . ' set ' . DB_FIELD_DEL . 'sort' . DB_FIELD_DEL . '=' . DB_FIELD_DEL . 'id' . DB_FIELD_DEL . ' where ' . DB_FIELD_DEL . 'id' . DB_FIELD_DEL . '=' . e($insert_id);
+					$_query_string = 'update ' . ActiveRecord::DB_FIELD_DEL . $many_to_many_table . ActiveRecord::DB_FIELD_DEL . ' set ' . ActiveRecord::DB_FIELD_DEL . 'sort' . ActiveRecord::DB_FIELD_DEL . '=' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' where ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . '=' . e($insert_id);
 					doitClass::$instance->db->exec($_query_string);
 				}
 			}
@@ -375,13 +375,13 @@ trait ActiveRecordSave {
 			}
 			//1.удаляем существующие данные из таблицы
 			if(count($data)>0){
-				$_query_string='delete from '.DB_FIELD_DEL.''.$many_to_many_table . DB_FIELD_DEL." where ".DB_FIELD_DEL. $second_field .DB_FIELD_DEL." NOT IN (". implode(', ',$data) .") AND ".DB_FIELD_DEL. $first_field .DB_FIELD_DEL." =  ". e($id) . "";
+				$_query_string='delete from '.ActiveRecord::DB_FIELD_DEL.''.$many_to_many_table . ActiveRecord::DB_FIELD_DEL." where ".ActiveRecord::DB_FIELD_DEL. $second_field .ActiveRecord::DB_FIELD_DEL." NOT IN (". implode(', ',$data) .") AND ".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL." =  ". e($id) . "";
 			}else{
-				$_query_string='delete from '.DB_FIELD_DEL.''.$many_to_many_table . DB_FIELD_DEL." where ".DB_FIELD_DEL. $first_field .DB_FIELD_DEL." =  ". e($id) . "";
+				$_query_string='delete from '.ActiveRecord::DB_FIELD_DEL.''.$many_to_many_table . ActiveRecord::DB_FIELD_DEL." where ".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL." =  ". e($id) . "";
 			}
 			doitClass::$instance->db->exec($_query_string);
 			//2.добавляем нове записи в таблицу
-			$exist = doitClass::$instance->db->query("SELECT ".DB_FIELD_DEL.''.$second_field . DB_FIELD_DEL." as cln FROM ".DB_FIELD_DEL.''.$many_to_many_table . DB_FIELD_DEL."  where ".DB_FIELD_DEL. $first_field .DB_FIELD_DEL." =  ". e($id) . "")->fetchAll(PDO::FETCH_COLUMN);
+			$exist = doitClass::$instance->db->query("SELECT ".ActiveRecord::DB_FIELD_DEL.''.$second_field . ActiveRecord::DB_FIELD_DEL." as cln FROM ".ActiveRecord::DB_FIELD_DEL.''.$many_to_many_table . ActiveRecord::DB_FIELD_DEL."  where ".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL." =  ". e($id) . "")->fetchAll(PDO::FETCH_COLUMN);
 			$exist = array_flip($exist);
 
 			foreach($original_data as $second_id){
@@ -394,7 +394,7 @@ trait ActiveRecordSave {
 					if(count($second_id)>1){
 						foreach ($second_id as $key=>$value){
 							if(!is_numeric($key)){
-								$need_keys[]=DB_FIELD_DEL . $key . DB_FIELD_DEL;
+								$need_keys[]=ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL;
 								if(SQL_NULL === $value){
 									$need_values[]='NULL';
 								}else{
@@ -410,10 +410,10 @@ trait ActiveRecordSave {
 			
 				}
 				if(!isset($exist[$second_id])){
-					$_query_string='insert into '.DB_FIELD_DEL. $many_to_many_table .DB_FIELD_DEL." (".DB_FIELD_DEL. $first_field .DB_FIELD_DEL.", ".DB_FIELD_DEL. $second_field .DB_FIELD_DEL." , ".DB_FIELD_DEL."created_at".DB_FIELD_DEL.",  ".DB_FIELD_DEL."updated_at".DB_FIELD_DEL . $additional_keys . ") values (". e($id) . ",". e( $second_id) . ", NOW(), NOW() " . $additional_values . " )";
+					$_query_string='insert into '.ActiveRecord::DB_FIELD_DEL. $many_to_many_table .ActiveRecord::DB_FIELD_DEL." (".ActiveRecord::DB_FIELD_DEL. $first_field .ActiveRecord::DB_FIELD_DEL.", ".ActiveRecord::DB_FIELD_DEL. $second_field .ActiveRecord::DB_FIELD_DEL." , ".ActiveRecord::DB_FIELD_DEL."created_at".ActiveRecord::DB_FIELD_DEL.",  ".ActiveRecord::DB_FIELD_DEL."updated_at".ActiveRecord::DB_FIELD_DEL . $additional_keys . ") values (". e($id) . ",". e( $second_id) . ", NOW(), NOW() " . $additional_values . " )";
 					doitClass::$instance->db->exec($_query_string);
 					$insert_id = doitClass::$instance->db->lastInsertId();
-					$_query_string = 'update ' . DB_FIELD_DEL . $many_to_many_table . DB_FIELD_DEL . ' set ' . DB_FIELD_DEL . 'sort' . DB_FIELD_DEL . '=' . DB_FIELD_DEL . 'id' . DB_FIELD_DEL . ' where ' . DB_FIELD_DEL . 'id' . DB_FIELD_DEL . '=' . e($insert_id);
+					$_query_string = 'update ' . ActiveRecord::DB_FIELD_DEL . $many_to_many_table . ActiveRecord::DB_FIELD_DEL . ' set ' . ActiveRecord::DB_FIELD_DEL . 'sort' . ActiveRecord::DB_FIELD_DEL . '=' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' where ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . '=' . e($insert_id);
 					doitClass::$instance->db->exec($_query_string);
 				}
 			}
