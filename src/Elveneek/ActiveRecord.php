@@ -10,7 +10,7 @@ define('SQL_NULL', 'CONST' . md5(time()) . 'MYSQL_NULL_CONST' . rand()); //FIXME
 abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //extends ArrayIterator
 {
 	public static $db;
-	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'w' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
+	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'find_by' => true, 'w' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
 
 	const DB_FIELD_DEL = '`';
 
@@ -259,7 +259,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	{
 		$object = new static;
 		$object->queryId = (int)$id;
-		$object->find_by('id', (int)$id);
+		$object->_find_by('id', (int)$id);
 		$object->limit(1);
 		return $object;
 	}
@@ -269,13 +269,13 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	public function _findOne($id)
 	{
 		$this->queryId = (int)$id;
-		$this->find_by('id', (int)$id);
+		$this->_find_by('id', (int)$id);
 		$this->limit(1);
 		return $this;
 	}
 
 
-	public   function find_by($by, $what)
+	public   function _find_by($by, $what)
 	{
 
 		//FIXME: быстрый кеш по столбцу в массиве (url:id)

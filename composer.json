@@ -20,5 +20,14 @@
         "psr-4": {
             "Elveneek\\": "src/Elveneek/"
         }
+    },
+    "require-dev": {
+        "pestphp/pest": "^1.21",
+        "vlucas/phpdotenv": "^5.4"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }
