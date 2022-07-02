@@ -3,7 +3,7 @@
 
 
 beforeAll(function () {
-    echo 'beforeAll';
+ 
     Dotenv\Dotenv::createImmutable(__DIR__)->load();
     \Elveneek\ActiveRecord::$db = \Elveneek\ActiveRecord::connect();
     \Elveneek\ActiveRecord::$db->exec(file_get_contents(__DIR__ . '/data/mysql.sql'));
@@ -27,6 +27,11 @@ test('basic static calls and fabrics', function () {
 
     expect(Product::w("id", 1)->id)->toBe(1);
     expect(Product::all()->w("id", 1)->id)->toBe(1);
+    
+    expect(\Elveneek\ActiveRecord::fromTable("products")->w("id", 1)->title)->toBe("First product");
+
+
+
 });
 
 test('by_id test', function () {
@@ -71,4 +76,16 @@ test('Stub and count test', function () {
 
 test('Plus and linked test', function () {
     expect(Product::all()->find_by('id', 1)->plus(Product::all()->where('id<3 and id > 1'))->count)->toBe(2);
+});
+
+test('To array and json conversion', function () {
+    expect(json_decode(Product::all()->select('id, title')->where('id IN (?)', [1,2,3])->to_json, true))->toEqualCanonicalizing (json_decode('[{"id":1,"title":"First product"}, {"id":2,"title":"Second product"},{"id":3,"title":"Third product"}]' , true) ) ;
+    expect(Product::all()->select('id, title')->order_by('id desc')->where('id IN (?)', [1,2,3])->to_json )->toBe ('[{"id":3,"title":"Third product"},{"id":2,"title":"Second product"},{"id":1,"title":"First product"}]') ;
+    
+    expect(Product::all()->select('id, title') ->where('id IN (?)', [1,2,3])->to_array )->toBe ( [ 
+        ["id"=>1, "title"=> "First product" ],
+        ["id"=>2, "title"=> "Second product" ],
+        ["id"=>3, "title"=> "Third product" ],
+    ]);
+    
 });

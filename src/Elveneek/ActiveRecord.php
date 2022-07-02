@@ -86,7 +86,8 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		}
 
 		$db->exec('SET CHARACTER SET utf8');
-		$db->exec('SET NAMES utf8'); //FIXME: возможно еще SET sql_mode = "";
+		$db->exec('SET NAMES utf8');
+		$db->exec("SET sql_mode = ''");
 		return $db;
 	}
 
@@ -1139,7 +1140,6 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 	function plus(int | array | ActiveRecord $elements = array())
 	{
-		$to_add = array();
 		$curr_array = $this->all_of('id');
 		if (is_numeric($elements)) {
 			$curr_array[] = $elements;
@@ -1194,7 +1194,46 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		return $this[$this->get_cursor_key_by_id($id)];
 	}
 
+
 	
+	
+
+	function to_array()
+	{
+		if ($this->queryReady === false) {
+			$this->fetch_data_now();
+		}
+
+		//Получаем все данные до конца.
+		if (!$this->isFetchedAll) {
+			while ($row = $this->currentPDOStatement->fetch()) {
+				$this->fetchedCount++;
+				$this->_data[] = $row;
+			}
+			$this->isFetchedAll = true;
+			$this->_count = count($this->_data);
+		}
+		return json_decode(json_encode($this->_data), true);  
+	}
+
+	function to_json()
+	{
+		if ($this->queryReady === false) {
+			$this->fetch_data_now();
+		}
+
+		//Получаем все данные до конца.
+		if (!$this->isFetchedAll) {
+			while ($row = $this->currentPDOStatement->fetch()) {
+				$this->fetchedCount++;
+				$this->_data[] = $row;
+			}
+			$this->isFetchedAll = true;
+			$this->_count = count($this->_data);
+		}
+
+		return json_encode($this->_data);
+	}
 
 	///HERE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> МЫ СЕЙЧАС ТУТ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -1265,22 +1304,6 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	}
 
 
-
-	function to_array()
-	{
-		if ($this->_options['queryready'] == false) {
-			$this->fetch_data_now();
-		}
-		foreach ($this->_data as $key => &$value) {
-			$value['table'] = $this->_options['table'];
-		}
-		return $this->_data;
-	}
-
-	function to_json()
-	{
-		return json_encode($this->to_array);
-	}
 	function to_json_by_id($pretty = false)
 	{
 		$result = array();
