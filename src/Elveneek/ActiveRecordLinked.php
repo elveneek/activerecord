@@ -14,7 +14,8 @@ trait ActiveRecordLinked {//DONE
 		return $columns !== false && isset($columns[$column]);
 			
 	}
-	
+	/*
+	//Кажется, не нужна
 	//Второстепенная функция, используется другими функциями
 	function table_exists($table ){ //FIXME: unused
  		if(isset(ActiveRecord::$_columns_cache [$table])){
@@ -22,7 +23,7 @@ trait ActiveRecordLinked {//DONE
 		}
 		return false !== $this->columns($table);
 	}
-	
+	*/
 
 	function linked($tablename){
 

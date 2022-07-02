@@ -1189,6 +1189,12 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	}
 
 
+	function by_id($id)
+	{
+		return $this[$this->get_cursor_key_by_id($id)];
+	}
+
+	
 
 	///HERE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> МЫ СЕЙЧАС ТУТ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -1295,11 +1301,6 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 
 	//$this->pluralToOne = self::plural_to_one($this->table);
-
-	function by_id($id)
-	{
-		return $this[$this->get_cursor_key_by_id($id)];
-	}
 
 
 

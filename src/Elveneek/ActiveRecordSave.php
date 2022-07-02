@@ -90,10 +90,10 @@ trait ActiveRecordSave {
 			}
 			if(count($this->_data) != 1 ){
 				if(count($this->_data) == 0){
-					throw new Exception('Trying to update empty object. You can use save() only with object with one row.');
+					throw new \Exception('Trying to update empty object. You can use save() only with object with one row.');
 				}
 				if(count($this->_data) >1 ){
-					throw new Exception('Trying to update more than one row. Please use saveAll()');
+					throw new \Exception('Trying to update more than one row. Please use saveAll()');
 				}
 				
 				return;
@@ -120,7 +120,7 @@ trait ActiveRecordSave {
 			if($_query_string !==''){
 				$_query_result = ActiveRecord::$db->exec($_query_string);
 			}
-		}catch  (PDOException $exception) {
+		}catch  (\PDOException $exception) {
 			
 		 
 			if($exception->errorInfo[1]===1054){
@@ -163,7 +163,7 @@ trait ActiveRecordSave {
 				$_query_result = ActiveRecord::$db->exec($_query_string);
 			}elseif(  $exception->errorInfo[1]===1064){
 				//Переподключаемся и делаем повторный запрос
-				throw new Exception('Wrong SQL query: '.$_query_string);
+				throw new \Exception('Wrong SQL query: '.$_query_string);
 			}else{
 				throw $exception;
 			}
@@ -215,6 +215,9 @@ trait ActiveRecordSave {
 		}
 		$this->_future_data=array();
 		if($isAlmostOneColumnCreated){
+
+			throw new \Exception('Ты забыл код написать, ленивая ты жопа');
+			
 			//Перезагружаем новые воркеры
 			App::$instance->rpc->call("http.Reset", true);
 			//Считаем, что колонка создалась, кеш уже не актуален

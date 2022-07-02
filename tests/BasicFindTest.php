@@ -23,3 +23,13 @@ test('basic find', function () {
     expect(Product::all()->find_by('id',2)->id)->toBe(2);
     expect(Product::all()->count)->toBe(5);
 });
+
+test('by_id test', function () {
+    expect(Product::all()->by_id(2)->title)->toBe("Second product");
+
+    $products =  Product::all()->order_by('rand()');
+    expect($products->by_id(3)->title)->toBe("Third product");
+    expect($products->title)->toBe("Third product");
+    expect($products->by_id(1)->title)->toBe("First product");
+  
+});
