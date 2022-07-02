@@ -1,5 +1,5 @@
 <?php 
-namespace elveneek;
+namespace Elveneek;
 class PDOProxy extends \PDO {
 
 
