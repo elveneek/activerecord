@@ -33,6 +33,8 @@ jobs:
         - name: Elveneek activerecord setup
           run: |
             composer install -q --no-ansi --no-interaction --no-scripts --no-suggest --no-progress --prefer-dist
+        - name: Prepare The Environment
+          run: touch tests/.env
         - name: Execute tests via Pest
           env:
             DB_CONNECTION: mysql
