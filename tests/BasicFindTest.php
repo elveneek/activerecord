@@ -56,9 +56,17 @@ test('Stub and count test', function () {
     expect(Product::all()->find_by('id', 1)->isNotEmpty)->toBe(true);
     expect(Product::all()->find_by('id', 1)->isEmpty)->toBe(false);
 
+    expect(Product::all()->find_by('id', 1)->ne())->toBe(true);
+    expect(Product::all()->find_by('id', 1)->isNotEmpty())->toBe(true);
+    expect(Product::all()->find_by('id', 1)->isEmpty())->toBe(false);
+
     expect(Product::all()->find_by('id', 9991)->ne)->toBe(false);
     expect(Product::all()->find_by('id', 9991)->isNotEmpty)->toBe(false);
     expect(Product::all()->find_by('id', 1999)->isEmpty)->toBe(true);
+
+    expect(Product::all()->find_by('id', 9991)->ne())->toBe(false);
+    expect(Product::all()->find_by('id', 9991)->isNotEmpty())->toBe(false);
+    expect(Product::all()->find_by('id', 1999)->isEmpty())->toBe(true);
 });
 
 test('Plus and linked test', function () {
