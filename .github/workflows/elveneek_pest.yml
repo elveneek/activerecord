@@ -15,7 +15,7 @@ jobs:
             ## Accessing to Github secrets, where you can store your configuration
             MYSQL_ALLOW_EMPTY_PASSWORD: yes
 #            MYSQL_ROOT_PASSWORD: ${{ secrets.DB_PASSWORD }}
-            MYSQL_DATABASE: db_test
+            MYSQL_DATABASE: elveneek-test
           ## map the "external" 33306 port with the "internal" 3306
           ports:
             - 3306:3306
