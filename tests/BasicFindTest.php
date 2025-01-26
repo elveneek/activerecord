@@ -89,3 +89,15 @@ test('To array and json conversion', function () {
     ]);
     
 });
+
+
+
+test('fins title test', function () {
+    
+    expect(Product::all()->find_by('title', "Second product")->title)->toBe("Second product");
+    expect(Product::find_by('id', 2)->title)->toBe("Second product");
+
+    expect(Product::all()->f(2)->title)->toBe("Second product");
+    expect(Product::f(2)->title)->toBe("Second product");
+    
+});

@@ -10,7 +10,7 @@ define('SQL_NULL', 'CONST' . md5(time()) . 'MYSQL_NULL_CONST' . rand()); //FIXME
 abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //extends ArrayIterator
 {
 	public static $db;
-	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'find_by' => true, 'w' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
+	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'find_by' => true, 'w' => true, 'f' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
 
 	const DB_FIELD_DEL = '`';
 
@@ -247,6 +247,9 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	public static function __callStatic($name, $arguments)
 	{
 		if (isset(ActiveRecord::NAMED_STATIC_FUNCTIONS[$name])) {
+			if ($name === 'f') {
+				return static::_f(...$arguments);
+			}
 			$object = new static;
 			$object->{'_' . $name}(...$arguments);
 			return $object;
@@ -1194,9 +1197,18 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		return $this[$this->get_cursor_key_by_id($id)];
 	}
 
+	public static function f($id)
+	{
+	    return static::find($id);
+	}
+	
+	public static function _f($id)
+	{
+	    return static::f($id);
+	}
 
 	
-	
+
 
 	function to_array()
 	{

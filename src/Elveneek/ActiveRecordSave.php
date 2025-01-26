@@ -47,7 +47,7 @@ trait ActiveRecordSave {
  
 	
 	/* для new из одного элемента - делает одну вставку. Для new из нескольких элементов - */
-	public function save()
+	public function saveOldVersion()
 	{
 		$to_array_cache=array();
 		$current_id=0;
@@ -228,10 +228,113 @@ trait ActiveRecordSave {
 		return $this;
 	}
 	
-	
-
 	//FIXME: dictionary убран (save_dictionary_array). При необходимости надо зако
 
+	public function save()
+	{
+		try {
+			if($this->queryNew === true) {
+				// INSERT logic
+				$fields = [];
+				$values = [];
+				foreach($this->_future_data as $key => $value) {
+					$fields[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL;
+					
+					if(SQL_NULL === $value || (substr($key,-3)=='_id' && !$value && $value !== '0' && $value !== 0)) {
+						$values[] = "NULL";
+					} else {
+						$values[] = ActiveRecord::$db->quote($value);
+					}
+				}
+				
+				$query = 'INSERT INTO ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL
+					. ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $values) . ')';
+				
+				ActiveRecord::$db->exec($query);
+				$this->insert_id = ActiveRecord::$db->lastInsertId();
+				
+				// Set default values if not provided
+				$updates = [];
+				if(empty($this->_future_data['sort'])) {
+					$updates[] = ActiveRecord::DB_FIELD_DEL . 'sort' . ActiveRecord::DB_FIELD_DEL . ' = ' . $this->insert_id;
+				}
+				if(empty($this->_future_data['created_at'])) {
+					$updates[] = ActiveRecord::DB_FIELD_DEL . 'created_at' . ActiveRecord::DB_FIELD_DEL . ' = NOW()';
+				}
+				if(empty($this->_future_data['updated_at'])) {
+					$updates[] = ActiveRecord::DB_FIELD_DEL . 'updated_at' . ActiveRecord::DB_FIELD_DEL . ' = NOW()';
+				}
+				
+				if(!empty($updates)) {
+					$updateQuery = 'UPDATE ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL
+						. ' SET ' . implode(', ', $updates)
+						. ' WHERE ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' = ' . $this->insert_id;
+					ActiveRecord::$db->exec($updateQuery);
+				}
+			} else {
+				// UPDATE logic
+				if ($this->queryReady === false) {
+					$this->fetch_data_now();
+				}
+				
+				if(!isset($this->_data[0])) {
+					throw new \Exception('Trying to update empty object');
+				}
+				
+				$current_id = $this->_data[0]->id;
+				
+				if(count($this->_future_data) > 0) {
+					$attributes = [];
+					foreach($this->_future_data as $key => $value) {
+						if(SQL_NULL === $value || (substr($key,-3)=='_id' && !$value && $value !== '0' && $value !== 0)) {
+							$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = NULL";
+						} else {
+							$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = " . ActiveRecord::$db->quote($value);
+						}
+					}
+					
+					$query = 'UPDATE ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL
+						. ' SET ' . implode(', ', $attributes)
+						. ', ' . ActiveRecord::DB_FIELD_DEL . 'updated_at' . ActiveRecord::DB_FIELD_DEL . ' = NOW()'
+						. ' WHERE ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' = ' . $current_id;
+					
+					ActiveRecord::$db->exec($query);
+					
+					// Clear all relevant caches
+					$this->_data = [];
+					$this->_get_by_id_cache = false;
+					$this->_objects_cache = [];
+					$this->queryReady = false;
+					
+					// Force reload from database
+					$this->fetch_data_now();
+					
+					// Clear column cache for this table
+					if (isset(ActiveRecord::$_columns_cache[$this->table])) {
+						unset(ActiveRecord::$_columns_cache[$this->table]);
+					}
+				}
+			}
+			
+			// Clear future data
+			$this->_future_data = [];
+			return $this;
+			
+		} catch (\PDOException $e) {
+			if($e->errorInfo[1] === 1054) { // Unknown column
+				// Create missing columns
+				foreach($this->_future_data as $field => $value) {
+					if(!isset(ActiveRecord::$_columns_cache[$this->table][$field])) {
+						Scaffold::create_field($this->table, $field);
+					}
+				}
+				// Retry the operation
+				return $this->save();
+			}
+			throw new \Exception('Database error: ' . $e->getMessage());
+		}
+	}
+	
 	function save_connecton_array($id,$table,$rules){
 		//Сохранение каждого из списка элементов. Если это не массив, сделать его таким
 		foreach($rules as $key=>$data){
@@ -431,16 +534,5 @@ trait ActiveRecordSave {
 		return $this->insert_id ? $this->insert_id : $this->id;
 	}
 	
-	public function id_or_insert_id()
-	{
-		return $this->insert_id ? $this->insert_id : $this->id;
-	}
-	public function save_and_load()
-	{
-		$this->save();
-		$class = get_class($this);
-		$result = new $class;
-		return $result->find($this->insert_id ? $this->insert_id : $this->id);
-	}
-	
+
 }
