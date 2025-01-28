@@ -38,3 +38,52 @@ test('basic save', function () {
 
 
 });
+
+test('batch save with saveAll', function() {
+    // Создаем несколько тестовых продуктов
+    for($i = 1; $i <= 3; $i++) {
+        $product = Product::create();
+        $product->title = "Product $i";
+        $product->save();
+    }
+
+    // Получаем все продукты и меняем их названия
+    $products = Product::all()->where('title LIKE "Product %"');
+    foreach($products as $product) {
+        $product->title = "Updated " . $product->title;
+    }
+    
+    // Сохраняем все изменения одним запросом
+    $products->saveAll();
+
+    // Проверяем что все названия обновились
+    $updatedProducts = Product::all()->where('title LIKE "Updated Product%"');
+    expect($updatedProducts->count)->toBe(3);
+    
+    foreach($updatedProducts as $product) {
+        expect($product->title)->toStartWith("Updated Product");
+    }
+});
+
+test('multiple save in loop', function() {
+    // Создаем несколько тестовых продуктов
+    for($i = 1; $i <= 3; $i++) {
+        $product = Product::create();
+        $product->title = "Loop Product $i";
+        $product->save();
+    }
+
+    // Обновляем каждый продукт отдельным save()
+    foreach(Product::all()->where('title LIKE "Loop Product%"') as $product) {
+        $product->title = "Modified " . $product->title;
+        $product->save();
+    }
+
+    // Проверяем что все названия обновились
+    $modifiedProducts = Product::all()->where('title LIKE "Modified Loop Product%"');
+    expect($modifiedProducts->count)->toBe(3);
+    
+    foreach($modifiedProducts as $product) {
+        expect($product->title)->toStartWith("Modified Loop Product");
+    }
+});

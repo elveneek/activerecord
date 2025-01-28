@@ -277,11 +277,11 @@ trait ActiveRecordSave {
 					$this->fetch_data_now();
 				}
 				
-				if(!isset($this->_data[0])) {
+				if(!isset($this->_data[$this->_cursor])) {
 					throw new \Exception('Trying to update empty object');
 				}
 				
-				$current_id = $this->_data[0]->id;
+				$current_id = $this->_data[$this->_cursor]->id;
 				
 				if(count($this->_future_data) > 0) {
 					$attributes = [];
@@ -300,14 +300,15 @@ trait ActiveRecordSave {
 					
 					ActiveRecord::$db->exec($query);
 					
-					// Clear all relevant caches
-					$this->_data = [];
+					// Update the current record in _data with new values
+					foreach($this->_future_data as $key => $value) {
+						$this->_data[$this->_cursor]->$key = $value;
+					}
+					$this->_data[$this->_cursor]->updated_at = date('Y-m-d H:i:s');
+					
+					// Clear specific caches but keep _data
 					$this->_get_by_id_cache = false;
 					$this->_objects_cache = [];
-					$this->queryReady = false;
-					
-					// Force reload from database
-					$this->fetch_data_now();
 					
 					// Clear column cache for this table
 					if (isset(ActiveRecord::$_columns_cache[$this->table])) {
@@ -533,6 +534,68 @@ trait ActiveRecordSave {
 	{
 		return $this->insert_id ? $this->insert_id : $this->id;
 	}
-	
+
+	public function saveAll()
+	{
+		if ($this->queryReady === false) {
+			$this->fetch_data_now();
+		}
+
+		if (empty($this->_data)) {
+			throw new \Exception('Trying to update empty collection');
+		}
+
+		if (empty($this->_future_data)) {
+			return $this; // Nothing to update
+		}
+
+		try {
+			$attributes = [];
+			foreach ($this->_future_data as $key => $value) {
+				if (SQL_NULL === $value || (substr($key, -3) == '_id' && !$value && $value !== '0' && $value !== 0)) {
+					$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = NULL";
+				} else {
+					$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = " . ActiveRecord::$db->quote($value);
+				}
+			}
+
+			// Собираем все ID объектов в коллекции
+			$ids = array_map(function($obj) {
+				return $obj->id;
+			}, $this->_data);
+
+			$query = 'UPDATE ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL
+				. ' SET ' . implode(', ', $attributes)
+				. ', ' . ActiveRecord::DB_FIELD_DEL . 'updated_at' . ActiveRecord::DB_FIELD_DEL . ' = NOW()'
+				. ' WHERE ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' IN (' . implode(',', $ids) . ')';
+
+			ActiveRecord::$db->exec($query);
+
+			// Clear caches
+			$this->_data = [];
+			$this->_get_by_id_cache = false;
+			$this->_objects_cache = [];
+			$this->queryReady = false;
+			$this->_future_data = [];
+
+			// Force reload from database
+			$this->fetch_data_now();
+
+			return $this;
+
+		} catch (\PDOException $e) {
+			if ($e->errorInfo[1] === 1054) { // Unknown column
+				// Create missing columns
+				foreach ($this->_future_data as $field => $value) {
+					if (!isset(ActiveRecord::$_columns_cache[$this->table][$field])) {
+						Scaffold::create_field($this->table, $field);
+					}
+				}
+				// Retry the operation
+				return $this->saveAll();
+			}
+			throw new \Exception('Database error: ' . $e->getMessage());
+		}
+	}
 
 }
