@@ -1252,60 +1252,86 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 
 
-	//Рекурсивная функция для быстрой сортировки дерева
+	/**
+	 * Recursive function for tree sorting
+	 * @param int $id Parent ID to get subtree for
+	 * @return array Array of child nodes
+	 */
 	private function get_subtree($id)
 	{
 		$_tmparr = array();
 		$_class_name = get_class($this);
 		foreach ($this->_data as $element) {
-			if (isset($element[$this->_options['plural_to_one'] . "_id"]) && $element[$this->_options['plural_to_one'] . "_id"] == $id) {
-				if (empty($this->_used_tree_branches[$element['id']])) {
-					$this->_used_tree_branches[$element['id']] = true;
-					$_tmparr[] = new  $_class_name(array('table' => $this->_options['table'], 'data' => array($element), 'tree' => $this->get_subtree($element['id'])));
+			if (isset($element->{$this->pluralToOne . "_id"}) && $element->{$this->pluralToOne . "_id"} == $id) {
+				if (empty($this->_used_tree_branches[$element->id])) {
+					$this->_used_tree_branches[$element->id] = true;
+					$obj = new $_class_name();
+					$obj->_data = [$element];
+					$obj->queryTree = $this->get_subtree($element->id);
+					$obj->queryReady = true;
+					$_tmparr[] = $obj;
 				}
 			}
 		}
 		return $_tmparr;
 	}
 
+	/**
+	 * Build a tree structure from flat data
+	 * @param mixed $root Optional root node ID to start from
+	 * @return array Tree structure
+	 */
 	public function tree($root = false)
 	{
-		//Если ленивый запрос ещё не произошёл - самое время.
-		if ($this->_options['queryready'] == false) {
+		if ($this->queryReady === false) {
 			$this->fetch_data_now();
 		}
 
-		//Если при создании объекта заранее указали его дерево - возвращаем его
-		if ($this->_options['tree'] !== false) {
-			return $this->_options['tree'];
+		if ($this->queryTree !== false) {
+			return $this->queryTree;
 		}
+
 		$_tmparr = array();
 		$_class_name = get_class($this);
+
 		if (is_object($root)) {
 			$root = $root->id;
 		}
 		$this->_used_tree_branches = array();
 
+		// Get all data if not already fetched
+		if (!$this->isFetchedAll) {
+			while ($row = $this->currentPDOStatement->fetch()) {
+				$this->fetchedCount++;
+				$this->_data[] = $row;
+			}
+			$this->isFetchedAll = true;
+			$this->_count = count($this->_data);
+		}
+
 		if ($root === false) {
 			foreach ($this->_data as $element) {
-				//Если данный элемент корневой, родительских элементов нет, поле element_id пустое
-				if (!isset($element[$this->_options['plural_to_one'] . "_id"])) {
-					//В опцию tree записываем рекурсивно полученные дочерние элементы
-					if (empty($this->_used_tree_branches[$element['id']])) {
-						$this->_used_tree_branches[$element['id']] = true;
-						$_tmparr[] = new  $_class_name(array('table' => $this->_options['table'], 'data' => array($element), 'tree' => $this->get_subtree($element['id'])));
+				if (!isset($element->{$this->pluralToOne . "_id"})) {
+					if (empty($this->_used_tree_branches[$element->id])) {
+						$this->_used_tree_branches[$element->id] = true;
+						$obj = new $_class_name();
+						$obj->_data = [$element];
+						$obj->queryTree = $this->get_subtree($element->id);
+						$obj->queryReady = true;
+						$_tmparr[] = $obj;
 					}
 				}
 			}
 		} else {
-
 			foreach ($this->_data as $element) {
-				//Если данный элемент корневой, родительских элементов нет, поле element_id == root
-				if (isset($element[$this->_options['plural_to_one'] . "_id"]) && ($element[$this->_options['plural_to_one'] . "_id"] == $root)) {
-					//В опцию tree записываем рекурсивно полученные дочерние элементы
-					if (empty($this->_used_tree_branches[$element['id']])) {
-						$this->_used_tree_branches[$element['id']] = true;
-						$_tmparr[] = new  $_class_name(array('table' => $this->_options['table'], 'data' => array($element), 'tree' => $this->get_subtree($element['id'])));
+				if (isset($element->{$this->pluralToOne . "_id"}) && ($element->{$this->pluralToOne . "_id"} == $root)) {
+					if (empty($this->_used_tree_branches[$element->id])) {
+						$this->_used_tree_branches[$element->id] = true;
+						$obj = new $_class_name();
+						$obj->_data = [$element];
+						$obj->queryTree = $this->get_subtree($element->id);
+						$obj->queryReady = true;
+						$_tmparr[] = $obj;
 					}
 				}
 			}
@@ -1315,11 +1341,15 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		return $_tmparr;
 	}
 
-
+	/**
+	 * Convert data to JSON with IDs as keys
+	 * @param bool|int $pretty JSON_PRETTY_PRINT flag or false
+	 * @return string JSON string
+	 */
 	function to_json_by_id($pretty = false)
 	{
 		$result = array();
-		foreach ($this->to_array as $value) {
+		foreach ($this->to_array() as $value) {
 			$result[$value['id']] = $value;
 		}
 		if ($pretty !== false) {

@@ -240,7 +240,7 @@ trait ActiveRecordSave {
 				foreach($this->_future_data as $key => $value) {
 					$fields[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL;
 					
-					if(SQL_NULL === $value || (substr($key,-3)=='_id' && !$value && $value !== '0' && $value !== 0)) {
+					if(SQL_NULL === $value) {
 						$values[] = "NULL";
 					} else {
 						$values[] = ActiveRecord::$db->quote($value);
@@ -252,6 +252,15 @@ trait ActiveRecordSave {
 				
 				ActiveRecord::$db->exec($query);
 				$this->insert_id = ActiveRecord::$db->lastInsertId();
+				
+				// Initialize _data with the new record
+				if (!isset($this->_data[$this->_cursor])) {
+					$this->_data[$this->_cursor] = new \stdClass();
+				}
+				$this->_data[$this->_cursor]->id = $this->insert_id;
+				foreach ($this->_future_data as $key => $value) {
+					$this->_data[$this->_cursor]->$key = $value;
+				}
 				
 				// Set default values if not provided
 				$updates = [];
@@ -286,7 +295,7 @@ trait ActiveRecordSave {
 				if(count($this->_future_data) > 0) {
 					$attributes = [];
 					foreach($this->_future_data as $key => $value) {
-						if(SQL_NULL === $value || (substr($key,-3)=='_id' && !$value && $value !== '0' && $value !== 0)) {
+						if(SQL_NULL === $value) {
 							$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = NULL";
 						} else {
 							$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = " . ActiveRecord::$db->quote($value);
@@ -552,7 +561,7 @@ trait ActiveRecordSave {
 		try {
 			$attributes = [];
 			foreach ($this->_future_data as $key => $value) {
-				if (SQL_NULL === $value || (substr($key, -3) == '_id' && !$value && $value !== '0' && $value !== 0)) {
+				if (SQL_NULL === $value) {
 					$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = NULL";
 				} else {
 					$attributes[] = ActiveRecord::DB_FIELD_DEL . $key . ActiveRecord::DB_FIELD_DEL . " = " . ActiveRecord::$db->quote($value);
