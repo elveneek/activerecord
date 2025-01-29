@@ -87,6 +87,51 @@ test('To array and json conversion', function () {
     ]);
 });
 
+test('LIKE queries', function () {
+    expect(Product::where('title LIKE ?', ['%First%'])->id)->toBe(1);
+    expect(Product::where('title LIKE ?', ['%product%'])->count)->toBe(5);
+    expect(Product::where('title LIKE ?', ['Fourth%'])->title)->toBe('Fourth product');
+    expect(Product::where('title LIKE ?', ['Fifth%'])->title)->toBe('Fifth Product');
+});
+
+test('NULL checks and optional fields', function () {
+    expect(Product::where('menu_id IS NULL')->count)->toBe(5);
+    expect(Product::where('template IS NOT NULL')->count)->toBe(0);
+    expect(Product::where('url IS NULL AND text IS NULL')->count)->toBe(5);
+});
+
+test('ORDER BY operations', function () {
+    // Test single field ordering
+    expect(Product::all()->order_by('title ASC')->first()->title)->toBe('Fifth Product');
+    expect(Product::all()->order_by('title DESC')->first()->title)->toBe('Third product');
+    
+    // Test multiple fields ordering (though in this case all other fields are NULL)
+    expect(Product::all()->order_by('type ASC, title DESC')->first()->title)->toBe('Third product');
+});
+
+test('LIMIT and OFFSET', function () {
+    // Test LIMIT
+    expect(Product::all()->limit(2)->count)->toBe(2);
+    expect(Product::all()->order_by('id')->limit(1)->first()->id)->toBe(1);
+    
+    // Test OFFSET
+    $products = Product::all()->order_by('id')->limit(2)->offset(2);
+    expect($products[0]->id)->toBe(3);
+    expect(Product::all()->order_by('id')->limit(1)->offset(4)[0]->id)->toBe(5);
+});
+
+test('IN and NOT IN operations', function () {
+    expect(Product::where('id IN (?)', [1,3,5])->count)->toBe(3);
+    expect(Product::where('id NOT IN (?)', [1,2,3])->count)->toBe(2);
+    expect(Product::where('title IN (?)', ['First product', 'Second product'])->count)->toBe(2);
+});
+
+test('Complex where conditions', function () {
+    expect(Product::where('id < ? AND id > ?', 4, 2)->count)->toBe(1);
+    expect(Product::where('id >= ? AND id <= ?', 2, 4)->count)->toBe(3);
+    expect(Product::where('title LIKE ?', '%product%')->count)->toBe(5);
+});
+
 /*
 test('Tree structure test', function () {
     // Create test data
