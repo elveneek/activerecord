@@ -47,7 +47,7 @@ trait ActiveRecordSave {
  
 	
 	/* для new из одного элемента - делает одну вставку. Для new из нескольких элементов - */
-	public function saveOldVersion()
+	public function saveOldVersionDeprecated()
 	{
 		$to_array_cache=array();
 		$current_id=0;
@@ -219,7 +219,7 @@ trait ActiveRecordSave {
 			throw new \Exception('Ты забыл код написать, ленивая ты жопа');
 			
 			//Перезагружаем новые воркеры
-			App::$instance->rpc->call("http.Reset", true);
+		//	App::$instance->rpc->call("http.Reset", true);
 			//Считаем, что колонка создалась, кеш уже не актуален
 			unset(ActiveRecord::$_columns_cache[$this->table]);
 		}
@@ -252,7 +252,12 @@ trait ActiveRecordSave {
 				
 				ActiveRecord::$db->exec($query);
 				$this->insert_id = ActiveRecord::$db->lastInsertId();
+				$current_id = $this->insert_id; // Store for later use in updates
 				
+				// Initialize _data with the new record
+				if (!isset($this->_data[$this->_cursor])) {
+					$this->_data[$this->_cursor] = new \stdClass();
+				}
 				// Initialize _data with the new record
 				if (!isset($this->_data[$this->_cursor])) {
 					$this->_data[$this->_cursor] = new \stdClass();
@@ -279,6 +284,10 @@ trait ActiveRecordSave {
 						. ' SET ' . implode(', ', $updates)
 						. ' WHERE ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' = ' . $this->insert_id;
 					ActiveRecord::$db->exec($updateQuery);
+
+					$this->queryNew = false;
+
+					
 				}
 			} else {
 				// UPDATE logic
@@ -328,6 +337,7 @@ trait ActiveRecordSave {
 			
 			// Clear future data
 			$this->_future_data = [];
+		
 			return $this;
 			
 		} catch (\PDOException $e) {
@@ -344,7 +354,7 @@ trait ActiveRecordSave {
 			throw new \Exception('Database error: ' . $e->getMessage());
 		}
 	}
-	
+	/*
 	function save_connecton_array($id,$table,$rules){
 		//Сохранение каждого из списка элементов. Если это не массив, сделать его таким
 		foreach($rules as $key=>$data){
@@ -433,7 +443,9 @@ trait ActiveRecordSave {
 		}
 	}
 	
-	
+	*/
+
+
 	/**
 	* Сохранение связей для запросов вида connected_friend_id_in_user_friends
 	*/
