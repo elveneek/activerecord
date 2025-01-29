@@ -142,7 +142,9 @@ test('batch update with saveAll preserves individual records', function() {
     
     // Update all products
     $collection = Product::all()->where('id IN (' . implode(',', $products) . ')');
-    $collection->type = "batch-updated";
+    foreach( $collection as $product){
+        $collection->type = "batch-updated";
+    }
     $collection->saveAll();
     
     // Verify each record maintained its individual values while updating shared field
