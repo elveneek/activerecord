@@ -802,6 +802,8 @@ return $_query_string;
 			if ($offset < 0) {
 				return false;
 			}
+
+			
 			
 			while (!$this->isFetchedAll && $this->fetchedCount <= $offset) {
 				if ($row = $this->currentPDOStatement->fetch()) {
@@ -813,9 +815,11 @@ return $_query_string;
 					break;
 				}
 			}
+		 
+
 			return isset($this->_data[$offset]);
 		}
-		
+
 		// Handle string keys for single record access
 		if (isset($this->_data[$this->_cursor])) {
 			// Check for methods first (consistent with __get behavior)
@@ -862,7 +866,7 @@ return $_query_string;
 
 	public function __isset($name): bool
 	{
-		return $this->count() === 0;
+		return property_exists($this->_data[$this->_cursor], $name);
 	}
 
 	public function __get($name)
@@ -1139,12 +1143,12 @@ return $_query_string;
 
 				//FIXME: это последний вызов ActiveRecord::fromTable, стоит тоже переделать. Особенно тут.
 			}
-			return '';
+			return null;
 		} else {
 			//Item.ramambaharum_mambu_rum
-			return '';
+			return null;
 		}
-		return '';
+		return null;
 	}
 
 
