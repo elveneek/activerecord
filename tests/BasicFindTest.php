@@ -5,10 +5,10 @@ beforeAll(function () {
     \Elveneek\ActiveRecord::$db = \Elveneek\ActiveRecord::connect();
     \Elveneek\ActiveRecord::$db->exec(file_get_contents(__DIR__ . '/data/mysql.sql'));
 
-    class Product extends \Elveneek\ActiveRecord
-    {
+    if (!class_exists('Product')) {
+        class Product extends \Elveneek\ActiveRecord {}
     }
-    
+
     if (!class_exists('Category')) {
         class Category extends \Elveneek\ActiveRecord {}
     }
@@ -124,6 +124,20 @@ test('IN and NOT IN operations', function () {
     expect(Product::where('id IN (?)', [1,3,5])->count)->toBe(3);
     expect(Product::where('id NOT IN (?)', [1,2,3])->count)->toBe(2);
     expect(Product::where('title IN (?)', ['First product', 'Second product'])->count)->toBe(2);
+});
+
+test('all_of method returns arrays of specified field values', function () {
+    // Test getting array of IDs
+    expect(Product::where('id <= ?', 3)->all_of('id'))
+        ->toBe([1, 2, 3]);
+    
+    // Test getting array of titles
+    expect(Product::where('id <= ?', 3)->all_of('title'))
+        ->toBe(['First product', 'Second product', 'Third product']);
+    
+    // Test with empty result set
+    expect(Product::where('id > ?', 999)->all_of('id'))
+        ->toBe([]);
 });
 
 test('Complex where conditions', function () {

@@ -10,7 +10,7 @@ define('SQL_NULL', 'CONST' . md5(time()) . 'MYSQL_NULL_CONST' . rand()); //FIXME
 abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //extends ArrayIterator
 {
 	public static $db;
-	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'find_by' => true, 'w' => true, 'f' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
+	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'find_by' => true, 'w' => true, 'f' => true, 'all_of' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
 
 	const DB_FIELD_DEL = '`';
 
@@ -41,6 +41,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	public $queryConditionsParams = [];
 	public $querySelect = '*';
 	public $queryLimit = '';
+	public $queryOffset = '';
 	public $queryOrder = ' ORDER BY ' . ActiveRecord::DB_FIELD_DEL . 'sort' . ActiveRecord::DB_FIELD_DEL . ' ';
 	public $queryGroupBy = '';
 	public $queryNew = false;
@@ -384,18 +385,24 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	 * @param $count второй параметр (необязательный) в дирекиве LIMIT (количество)
 	 * @return ActiveRecord текущий экземплятр объекта
 	 */
-	public function limit($limit, $count = false) //DONE
+	public function limit(int $limit)
 	{
-		$this->queryReady = false;
-		if ($count !== false) {
-			$limit = $limit . ', ' . $count;
-		}
-		if ($limit != '') {
-			$this->queryLimit = ' LIMIT ' . $limit . ' ';
-		} else {
-			$this->queryLimit = '';
-		}
-		return $this;
+	    if ($limit < 0) {
+	        throw new \InvalidArgumentException("Limit must be a positive integer");
+	    }
+	    $this->queryReady = false;
+	    $this->queryLimit = ' LIMIT ' . $limit;
+	    return $this;
+	}
+
+	public function offset(int $offset)
+	{
+	    if ($offset < 0) {
+	        throw new \InvalidArgumentException("Offset must be a positive integer");
+	    }
+	    $this->queryReady = false;
+	    $this->queryOffset = ' OFFSET ' . $offset;
+	    return $this;
 	}
 
 
@@ -513,11 +520,20 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		if ($this->queryOrder != '') {
 			$_query_string .=  $this->queryOrder;
 		}
+// Combine LIMIT and OFFSET in MySQL syntax
+if ($this->queryLimit != '') {
+	$_query_string .= ' LIMIT ';
+	if (isset($this->queryOffset) && $this->queryOffset != '') {
+		// Remove "OFFSET " from the offset string to get just the number
+		$offset = str_replace(' OFFSET ', '', $this->queryOffset);
+		$limit = str_replace(' LIMIT ', '', $this->queryLimit);
+		$_query_string .= $offset . ', ' . $limit;
+	} else {
+		$_query_string .= str_replace(' LIMIT ', '', $this->queryLimit);
+	}
+}
 
-		if ($this->queryLimit != '') {
-			$_query_string .=  $this->queryLimit;
-		}
-
+return $_query_string;
 		return $_query_string;
 	}
 
@@ -643,15 +659,17 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		if ($this->queryReady === false) {
 			$this->fetch_data_now();
 		}
-		if ($this->isFetchedAll === true) {
-			return $this->_count;
+		
+		// If we haven't fetched all data yet, do it now
+		if (!$this->isFetchedAll) {
+			while ($row = $this->currentPDOStatement->fetch()) {
+				$this->fetchedCount++;
+				$this->_data[] = $row;
+			}
+			$this->isFetchedAll = true;
+			$this->_count = count($this->_data);
 		}
-		while ($row = $this->currentPDOStatement->fetch()) {
-			$this->fetchedCount++;
-			$this->_data[] = $row;
-		}
-		$this->isFetchedAll = true;
-		$this->_count = count($this->_data);
+		
 		return $this->_count;
 	}
 
@@ -747,19 +765,68 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	function offsetGet(mixed $index): mixed //DONE
 	{
 		if (is_numeric($index)) {
-			$this->_cursor = $index;
-			return $this;
-		} else {
-			return $this->{$index};
+			if ($this->queryReady === false) {
+				$this->fetch_data_now();
+			}
+			
+			// Ensure we have fetched enough data
+			while (!$this->isFetchedAll && $this->fetchedCount <= $index) {
+				if ($row = $this->currentPDOStatement->fetch()) {
+					$this->fetchedCount++;
+					$this->_data[] = $row;
+				} else {
+					$this->isFetchedAll = true;
+					$this->_count = count($this->_data);
+					break;
+				}
+			}
+			
+			// Only set cursor and return if we have data at this index
+			if (isset($this->_data[$index])) {
+				$this->_cursor = $index;
+				return $this;
+			}
+			return null;
 		}
+		return $this->{$index};
 	}
 
 	function offsetExists(mixed $offset): bool
 	{
 		if ($this->queryReady === false) {
 			$this->fetch_data_now();
-		} //FIXME: а если фетч не прошёл?...
-		return isset($this->_data[$this->_cursor]);
+		}
+		
+		// Handle numeric offsets
+		if (is_numeric($offset)) {
+			if ($offset < 0) {
+				return false;
+			}
+			
+			while (!$this->isFetchedAll && $this->fetchedCount <= $offset) {
+				if ($row = $this->currentPDOStatement->fetch()) {
+					$this->fetchedCount++;
+					$this->_data[] = $row;
+				} else {
+					$this->isFetchedAll = true;
+					$this->_count = count($this->_data);
+					break;
+				}
+			}
+			return isset($this->_data[$offset]);
+		}
+		
+		// Handle string keys for single record access
+		if (isset($this->_data[$this->_cursor])) {
+			// Check for methods first (consistent with __get behavior)
+			if (method_exists($this, $offset)) {
+				return true;
+			}
+			// Then check for properties in the data
+			return property_exists($this->_data[$this->_cursor], $offset);
+		}
+		
+		return false;
 	}
 
 
@@ -793,12 +860,13 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		//Я этого делать не буду. Пока. //FIXME, наверное $user->name = "вася"; unset($user->name); должен отменять присваивание. А в случае поиска и изменении - записывать в базу null;. Надо подумать про числовые и буквенные ансеты.
 	}
 
-	//Получение одного поля
-
-	function __get($name)
+	public function __isset($name): bool
 	{
+		return $this->count() === 0;
+	}
 
-
+	public function __get($name)
+	{
 		//Item.something
 		if (method_exists($this, $name)) {
 			return $this->{$name}();
@@ -1112,10 +1180,24 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		if ($this->queryReady === false) {
 			$this->fetch_data_now();
 		}
-		if (isset($this->_data[0])) {
-			return false;
+
+		// For queries that haven't started fetching yet, the first fetch_data_now()
+		// will give us enough information to determine if it's empty
+		if ($this->fetchedCount === 0 && $this->_count === 0) {
+			return true;
 		}
-		return true;
+		
+		// Otherwise ensure all data is fetched to properly determine if empty
+		if (!$this->isFetchedAll) {
+			while ($row = $this->currentPDOStatement->fetch()) {
+				$this->fetchedCount++;
+				$this->_data[] = $row;
+			}
+			$this->isFetchedAll = true;
+			$this->_count = count($this->_data);
+		}
+		
+		return count($this->_data) === 0;
 	}
 
 	public function isNotEmpty(): bool
