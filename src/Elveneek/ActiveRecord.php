@@ -839,7 +839,26 @@ return $_query_string;
 		if (is_null($offset)) {
 			//ничего пока не делать
 		} else {
-			$this->{$offset} = $value;
+			if ($this->queryReady === false) {
+				$this->fetch_data_now();
+			}
+			
+			// Initialize _data if needed
+			if (!isset($this->_data[$this->_cursor])) {
+				$this->_data[$this->_cursor] = new \stdClass();
+			}
+			
+			// Handle the value similar to __set()
+			if ($value === '' && substr($offset, -3) === '_at') {
+				$value = SQL_NULL;
+			}
+			if (is_null($value)) {
+				$value = SQL_NULL;
+			}
+			
+			// Set the value both in _data and future_data
+			$this->_data[$this->_cursor]->{$offset} = $value;
+			$this->_future_data[$offset] = (string)$value;
 		}
 	}
 	function seek($position) //FIXME: если прыгаем через 30 строк в будущее, нужно сделать 30 запросов к базе данных
@@ -860,32 +879,41 @@ return $_query_string;
 	}
 	function offsetUnset(mixed $offset): void
 	{
-
 		if ($this->queryReady === false) {
 			$this->fetch_data_now();
 		}
 		
-		if (is_numeric($offset) && isset($this->_data[$offset])) {
-			
-			
-			// Force fetch all remaining data
-			if (!$this->isFetchedAll) {
-				while ($row = $this->currentPDOStatement->fetch()) {
-					$this->fetchedCount++;
-					$this->_data[] = $row;
+		if (is_numeric($offset)) {
+			// Handle numeric indexes
+			if (isset($this->_data[$offset])) {
+				// Force fetch all remaining data
+				if (!$this->isFetchedAll) {
+					while ($row = $this->currentPDOStatement->fetch()) {
+						$this->fetchedCount++;
+						$this->_data[] = $row;
+					}
+					$this->isFetchedAll = true;
 				}
-				$this->isFetchedAll = true;
+				
+				$this->_data[$offset] = null;
+				// Update count
+				$count = 0;
+				foreach ($this->_data as $item) {
+					if ($item !== null) {
+						$count++;
+					}
+				}
+				$this->_count = $count;
 			}
-			
-			$this->_data[$offset] = null;
-			// Update count
-			$count = 0;
-			foreach ($this->_data as $item) {
-				if ($item !== null) {
-					$count++;
+		} else {
+			// Handle string keys by unsetting the property on the current record
+			if (isset($this->_data[$this->_cursor])) {
+				unset($this->_data[$this->_cursor]->{$offset});
+				// Also unset from future_data if it exists
+				if (isset($this->_future_data[$offset])) {
+					unset($this->_future_data[$offset]);
 				}
 			}
-			$this->_count = $count;
 		}
 	}
 

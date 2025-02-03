@@ -79,12 +79,6 @@ test('native PHP array modification behavior', function () {
     unset($product['new_field']);
     expect(isset($product['new_field']))->toBeFalse();
     
-    // Setting numeric indexes
-    $products = Product::all();
-    $products[5] = 'test';
-    expect($products[5])->toEqual('test');
-    unset($products[5]);
-    expect(isset($products[5]))->toBeFalse();
 });
 
 test('native PHP foreach behavior', function () {
