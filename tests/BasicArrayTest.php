@@ -117,6 +117,8 @@ test('native PHP count() behavior', function () {
     unset($products[0]);
     expect(count($products))->toEqual(4);
 
+
+    //В отличие от предыдущего кейса, в данном случае проверяется что fetch_data выполняется без вызова count.
     $products = Product::all();
     expect(count($products))->toEqual(5);
     unset($products[0]);
