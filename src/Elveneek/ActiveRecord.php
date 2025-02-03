@@ -860,8 +860,33 @@ return $_query_string;
 	}
 	function offsetUnset(mixed $offset): void
 	{
-		//unset($this->_data[$this->_cursor]);
-		//Я этого делать не буду. Пока. //FIXME, наверное $user->name = "вася"; unset($user->name); должен отменять присваивание. А в случае поиска и изменении - записывать в базу null;. Надо подумать про числовые и буквенные ансеты.
+
+		if ($this->queryReady === false) {
+			$this->fetch_data_now();
+		}
+		
+		if (is_numeric($offset) && isset($this->_data[$offset])) {
+			
+			
+			// Force fetch all remaining data
+			if (!$this->isFetchedAll) {
+				while ($row = $this->currentPDOStatement->fetch()) {
+					$this->fetchedCount++;
+					$this->_data[] = $row;
+				}
+				$this->isFetchedAll = true;
+			}
+			
+			$this->_data[$offset] = null;
+			// Update count
+			$count = 0;
+			foreach ($this->_data as $item) {
+				if ($item !== null) {
+					$count++;
+				}
+			}
+			$this->_count = $count;
+		}
 	}
 
 	public function __isset($name): bool

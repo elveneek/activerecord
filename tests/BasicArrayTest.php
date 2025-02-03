@@ -122,6 +122,11 @@ test('native PHP count() behavior', function () {
     $products = Product::all();
     unset($products[0]);
     expect(count($products))->toEqual(4);
+
+    $products = Product::all();
+    expect(count($products))->toEqual(5);
+    unset($products[0]);
+    expect(count($products))->toEqual(4);
 });
 
 test('native PHP array edge cases', function () {
@@ -167,5 +172,62 @@ test('native PHP array type behavior', function () {
     
     // Should work with array functions
     expect(isset($products))->toBeTrue();
+});
+
+test('iterator rewind and multiple iterations', function () {
+    $products = Product::all()->order_by('id')->limit(3);
     
+    // First iteration
+    $firstRun = [];
+    foreach ($products as $key => $product) {
+        $firstRun[$key] = $product->id;
+    }
+    
+    // Second iteration should start from beginning due to rewind()
+    $secondRun = [];
+    foreach ($products as $key => $product) {
+        $secondRun[$key] = $product->id;
+    }
+    
+    // Both iterations should yield same results
+    expect($firstRun)->toEqual([0 => 1, 1 => 2, 2 => 3]);
+    expect($secondRun)->toEqual([0 => 1, 1 => 2, 2 => 3]);
+    
+    // After foreach, iterator should be at the end
+    expect($products->valid())->toBeFalse();
+    
+    // Manual rewind should reset iterator
+    $products->rewind();
+    expect($products->valid())->toBeTrue();
+    expect($products->current()->id)->toEqual(1);
+    expect($products->key())->toEqual(0);
+});
+
+test('iterator state after foreach', function () {
+    $products = Product::all()->order_by('id')->limit(2);
+    
+    // Initial state
+    expect($products->valid())->toBeTrue();
+    expect($products->current()->id)->toEqual(1);
+    expect($products->key())->toEqual(0);
+    
+    // Complete iteration
+    foreach ($products as $product) {
+        // Just iterate
+    }
+    
+    // After foreach, iterator should be at the end
+    expect($products->valid())->toBeFalse();
+    
+    // Manual navigation
+    $products->rewind();
+    expect($products->valid())->toBeTrue();
+    expect($products->current()->id)->toEqual(1);
+    
+    $products->next();
+    expect($products->valid())->toBeTrue();
+    expect($products->current()->id)->toEqual(2);
+    
+    $products->next();
+    expect($products->valid())->toBeFalse();
 });
