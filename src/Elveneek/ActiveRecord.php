@@ -480,7 +480,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 		$_query_string = 'SELECT ';
 
-		if ($this->queryCalcRows) { //FIXME: отказываемся от этого
+		if ($this->queryCalcRows) { //FIXME: отказываемся от этого, используем более производительный count()
 			$_query_string .= ' SQL_CALC_FOUND_ROWS ';
 		}
 		$_query_string .= ' ' . $this->querySelect . ' FROM ' . ActiveRecord::DB_FIELD_DEL . '' . $this->table . '' . ActiveRecord::DB_FIELD_DEL . ' ';
