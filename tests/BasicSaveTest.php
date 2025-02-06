@@ -184,8 +184,6 @@ test('auto-increment sort field', function() {
 });
 
 test('save preserves field values after multiple operations', function() {
-    
-    
     $product = Product::create();
     $product->title = "Persistence Test";
     $product->text = "Original Text";
@@ -210,4 +208,38 @@ test('save preserves field values after multiple operations', function() {
     $saved = Product::find($id);
     expect($saved->title)->toBe("Updated Title");
     expect($saved->text)->toBe("Updated Text");
+});
+
+test('truncate table', function() {
+    // Create some test data
+    for($i = 1; $i <= 5; $i++) {
+        $product = Product::create();
+        $product->title = "Test Product $i";
+        $product->save();
+    }
+    
+    // Verify test data exists
+    expect(Product::all()->count())->toBeGreaterThan(0);
+    
+    // Truncate the table
+    Product::truncate(true);
+    
+    // Verify table is empty
+    expect(Product::all()->count())->toBe(0);
+    
+    // Attempt to truncate without passing true
+    try {
+        Product::truncate();
+        $this->fail('Expected exception was not thrown');
+    } catch (\Exception $e) {
+        expect($e->getMessage())->toBe('You must pass true to the $areYouSure parameter to truncate the table.');
+    }
+    
+    // Attempt to truncate with false
+    try {
+        Product::truncate(false);
+        $this->fail('Expected exception was not thrown');
+    } catch (\Exception $e) {
+        expect($e->getMessage())->toBe('You must pass true to the $areYouSure parameter to truncate the table.');
+    }
 });
