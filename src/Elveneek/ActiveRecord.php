@@ -1108,7 +1108,7 @@ return $_query_string;
 
 			//Если в текущей таблице есть колонка $name (но нет в результатах ответа) - возвращаем ""
 			if (isset(ActiveRecord::$_columns_cache[$this->table][$name])) {
-				return '';
+				return null;
 			}
 
 			//Item.user          //Получение связанного объекта

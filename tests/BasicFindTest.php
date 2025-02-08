@@ -146,6 +146,14 @@ test('Complex where conditions', function () {
     expect(Product::where('title LIKE ?', '%product%')->count)->toBe(5);
 });
 
+test('Unselected column returns null', function () {
+    // First verify title is accessible when selecting all columns
+    expect(Product::all()->find_by('id', 1)->title)->toBe('First product');
+    
+    // Then verify title returns null when only selecting id and sort
+    expect(Product::all()->select('id, sort')->find_by('id', 1)->title)->toBeNull();
+});
+
 /*
 test('Tree structure test', function () {
     // Create test data
