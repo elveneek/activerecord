@@ -35,7 +35,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	
 	private $_must_rewind = false;
 
-	public static $curentTableColumns = false;
+	private static $currentTableColumnsByClass = [];
 	public $table = "";
 	public $queryConditions = [];
 	public $queryConditionsParams = [];
@@ -610,34 +610,28 @@ return $_query_string;
 			$this->_data[] = $row;  //Объекты передаются по ссылке, поэтому можем перекидывать и копировать.
 		}
 
-		//Получаем список колонок текущей таблицы:
-		if (isset(ActiveRecord::$_columns_cache[$this->table])) {
-			$columns = ActiveRecord::$_columns_cache[$this->table];
-		} else {
-
-			if ($this->querySelect == '*') { //Если мы пытались получить все столбцы
-				$_res = $this->currentPDOStatement;
-			} else {
-				try {
-					$_res = ActiveRecord::$db->query('SELECT * FROM ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL . ' LIMIT 0', \PDO::ERRMODE_SILENT);
-				} catch (\PDOException $exception) {
-					$_res = false; //FIXME: а можно без Exception?...
+		// Get current class name
+		$calledClass = get_called_class();
+		
+		// Initialize columns for current model if not already done
+		if (!isset(static::$currentTableColumnsByClass[$calledClass])) {
+			try {
+				$_res = ActiveRecord::$db->query('SELECT * FROM ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL . ' LIMIT 0', \PDO::ERRMODE_SILENT);
+				if ($_res !== false) {
+					$columns = array();
+					$columns_count = $_res->columnCount();
+					for ($i = 0; $i <= $columns_count - 1; $i++) {
+						$column = $_res->getColumnMeta($i);
+						$columns[$column['name']] = true;
+					}
+					static::$currentTableColumnsByClass[$calledClass] = $columns;
+				} else {
+					static::$currentTableColumnsByClass[$calledClass] = false;
 				}
-			}
-			if ($_res !== false) {
-				$columns  = array();
-				$columns_count =  $_res->columnCount();
-				for ($i = 0; $i <= $columns_count - 1; $i++) {
-					$column = $_res->getColumnMeta($i);
-					$columns[$column['name']] = true;
-				}
-				ActiveRecord::$_columns_cache[$this->table] = $columns;
-			} else {
-				ActiveRecord::$_columns_cache[$this->table] = false;
-				$columns = false;
+			} catch (\PDOException $exception) {
+				static::$currentTableColumnsByClass[$calledClass] = false;
 			}
 		}
-		static::$curentTableColumns = $columns;
 
 
 		return;
@@ -1117,12 +1111,14 @@ return $_query_string;
 
 
 			//Если в текущей таблице есть колонка $name (но нет в результатах ответа) - возвращаем ""
-			if (isset(static::$curentTableColumns[$name])) {
+			$calledClass = get_called_class();
+			if (isset(static::$currentTableColumnsByClass[$calledClass][$name])) {
 				return '';
 			}
 
 			//Item.user          //Получение связанного объекта
-			if (isset(static::$curentTableColumns[$name . '_id'])) {
+			$calledClass = get_called_class();
+			if (isset(static::$currentTableColumnsByClass[$calledClass][$name . '_id'])) {
 				//$this->_objects_cache - список собранных вещей, для решения проблемы N+1, например для foreach products as product; product->category
 				if (!isset($this->_objects_cache[$name])) {
 					//Чтобы сделать такой запрос, мы вынуждены получить данные до конца.
@@ -1147,6 +1143,7 @@ return $_query_string;
 					$this->_objects_cache[$name] = (new $_modelname())->all()->order('')->where(' ' . ActiveRecord::DB_FIELD_DEL . 'id' . ActiveRecord::DB_FIELD_DEL . ' IN (?)', $ids_array); //FIXME:!! можно инициировать без вызова же: сделать ActiveRecord::all_by_ids()
 				}
 				$cursor_key = $this->_objects_cache[$name]->get_cursor_key_by_id($this->_data[$this->_cursor]->{$name . '_id'});
+				 
 				if ($cursor_key === false) {
 					$trash = clone ($this->_objects_cache[$name]);
 					return $trash->limit('0')->where('false');
