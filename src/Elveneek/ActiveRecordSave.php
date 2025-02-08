@@ -346,6 +346,11 @@ trait ActiveRecordSave {
 				foreach($this->_future_data as $field => $value) {
 					if(!isset(ActiveRecord::$_columns_cache[$this->table][$field])) {
 						Scaffold::create_field($this->table, $field);
+						// Update columns cache after creating new field
+						if (!isset(ActiveRecord::$_columns_cache[$this->table])) {
+							ActiveRecord::$_columns_cache[$this->table] = [];
+						}
+						ActiveRecord::$_columns_cache[$this->table][$field] = true;
 					}
 				}
 				// Retry the operation
@@ -416,6 +421,11 @@ trait ActiveRecordSave {
 				foreach ($this->_future_data as $field => $value) {
 					if (!isset(ActiveRecord::$_columns_cache[$this->table][$field])) {
 						Scaffold::create_field($this->table, $field);
+						// Update columns cache after creating new field
+						if (!isset(ActiveRecord::$_columns_cache[$this->table])) {
+							ActiveRecord::$_columns_cache[$this->table] = [];
+						}
+						ActiveRecord::$_columns_cache[$this->table][$field] = true;
 					}
 				}
 				// Retry the operation

@@ -35,7 +35,6 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	
 	private $_must_rewind = false;
 
-	private static $currentTableColumnsByClass = [];
 	public $table = "";
 	public $queryConditions = [];
 	public $queryConditionsParams = [];
@@ -610,11 +609,8 @@ return $_query_string;
 			$this->_data[] = $row;  //Объекты передаются по ссылке, поэтому можем перекидывать и копировать.
 		}
 
-		// Get current class name
-		$calledClass = get_called_class();
-		
-		// Initialize columns for current model if not already done
-		if (!isset(static::$currentTableColumnsByClass[$calledClass])) {
+		// Initialize columns for current table if not already done
+		if (!isset(ActiveRecord::$_columns_cache[$this->table])) {
 			try {
 				$_res = ActiveRecord::$db->query('SELECT * FROM ' . ActiveRecord::DB_FIELD_DEL . $this->table . ActiveRecord::DB_FIELD_DEL . ' LIMIT 0', \PDO::ERRMODE_SILENT);
 				if ($_res !== false) {
@@ -624,12 +620,12 @@ return $_query_string;
 						$column = $_res->getColumnMeta($i);
 						$columns[$column['name']] = true;
 					}
-					static::$currentTableColumnsByClass[$calledClass] = $columns;
+					ActiveRecord::$_columns_cache[$this->table] = $columns;
 				} else {
-					static::$currentTableColumnsByClass[$calledClass] = false;
+					ActiveRecord::$_columns_cache[$this->table] = false;
 				}
 			} catch (\PDOException $exception) {
-				static::$currentTableColumnsByClass[$calledClass] = false;
+				ActiveRecord::$_columns_cache[$this->table] = false;
 			}
 		}
 
@@ -1111,14 +1107,13 @@ return $_query_string;
 
 
 			//Если в текущей таблице есть колонка $name (но нет в результатах ответа) - возвращаем ""
-			$calledClass = get_called_class();
-			if (isset(static::$currentTableColumnsByClass[$calledClass][$name])) {
+			if (isset(ActiveRecord::$_columns_cache[$this->table][$name])) {
 				return '';
 			}
 
 			//Item.user          //Получение связанного объекта
 			$calledClass = get_called_class();
-			if (isset(static::$currentTableColumnsByClass[$calledClass][$name . '_id'])) {
+			if (isset(ActiveRecord::$_columns_cache[$this->table][$name . '_id'])) {
 				//$this->_objects_cache - список собранных вещей, для решения проблемы N+1, например для foreach products as product; product->category
 				if (!isset($this->_objects_cache[$name])) {
 					//Чтобы сделать такой запрос, мы вынуждены получить данные до конца.
