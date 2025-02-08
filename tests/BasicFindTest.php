@@ -85,6 +85,12 @@ test('To array and json conversion', function () {
         ["id"=>2, "title"=> "Second product"],
         ["id"=>3, "title"=> "Third product"],
     ]);
+    
+    expect(Product::all()->select('id, title')->where('id IN (?)', [1,2,3, null])->to_array)->toBe([
+        ["id"=>1, "title"=> "First product"],
+        ["id"=>2, "title"=> "Second product"],
+        ["id"=>3, "title"=> "Third product"],
+    ]);
 });
 
 test('LIKE queries', function () {
@@ -131,6 +137,11 @@ test('all_of method returns arrays of specified field values', function () {
     expect(Product::where('id <= ?', 3)->all_of('id'))
         ->toBe([1, 2, 3]);
     
+    //Значения с null пропускаются
+    expect(Product::all()->all_of('brand_id'))
+        ->toBe([1, 2, 3, 1]);
+    
+
     // Test getting array of titles
     expect(Product::where('id <= ?', 3)->all_of('title'))
         ->toBe(['First product', 'Second product', 'Third product']);

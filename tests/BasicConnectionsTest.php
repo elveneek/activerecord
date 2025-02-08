@@ -12,6 +12,12 @@ beforeAll(function () {
     if (!class_exists('Category')) {
         class Category extends \Elveneek\ActiveRecord {}
     }
+    if (!class_exists('Categories_to_product')) {
+        class Categories_to_product extends \Elveneek\ActiveRecord {}
+    }
+    if (!class_exists('Brand')) {
+        class Brand extends \Elveneek\ActiveRecord {}
+    }
 });
 
 
@@ -46,4 +52,16 @@ test('one to many', function () {
     $category = Category::find(1);
     expect($category->products->count())->toBe(3);
     expect($category->products[0]->id)->toBe(1);
+});
+
+test('Linked test', function () {
+    $category = Category::find(1);
+    
+    expect($category->linked('categories_to_products')->count)->toBe(3);
+    expect($category->_categories_to_products->count())->toBe(3);
+    expect($category->_categories_to_products->_products->count())->toBe(3);
+    
+    expect(Product::all()->linked('brands')->count())->toBe(3);
+    expect($category->_categories_to_products->_products->_brands->count())->toBe(2);
+    expect($category->_categories_to_products->_products->_categories->_categories_to_products->_products->_brands->count())->toBe(3);
 });

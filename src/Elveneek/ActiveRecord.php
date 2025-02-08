@@ -355,6 +355,10 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 						} else {
 							// $param - ждём строго массив
 							foreach ($param as $key => $value) {
+								if (is_null($value)){
+									unset($param[$key]);
+									continue;
+								}
 								$param[$key] = ActiveRecord::$db->quote($param[$key]);
 							}
 							$param = implode(", ", array_unique($param));
@@ -1219,7 +1223,9 @@ return $_query_string;
 		//Заполняем массив с результатами
 		$result_array = array();
 		foreach ($this->_data as $value) {
-			$result_array[] = $value->$field;
+			if($value->$field != null){
+				$result_array[] = $value->$field;
+			}
 		}
 		return $result_array;
 	}

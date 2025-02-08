@@ -37,7 +37,7 @@ trait ActiveRecordLinked {//DONE
 		
 		if($this->column_exists($column_name, $tablename)){
 			//Получаем массив идентификаторов
-			$ids = $this->fast_all_of('id');
+			$ids = $this->all_of('id');
 			
 			$_modelname=ActiveRecord::plural_to_one(strtolower($tablename));
 			$_modelname = strtoupper($_modelname[0]).substr($_modelname,1);
@@ -61,10 +61,14 @@ trait ActiveRecordLinked {//DONE
 			
 			if($this->column_exists($column_name, $this->table)){
 				//Получаем массив идентификаторов
-				$ids = $this->fast_all_of($column_name);
+				$ids = $this->all_of($column_name);
+				var_dump($column_name);
+				var_dump($this->table);
 				//FIXME модели вида ProductCategory
 				$_modelname=ActiveRecord::plural_to_one(strtolower($tablename));
 				$_modelname = strtoupper($_modelname[0]).substr($_modelname,1);
+				var_dump($_modelname); 
+				var_dump($ids);
 				return (new $_modelname())->where('id IN (?)', $ids);
 			}
 		}
@@ -76,7 +80,7 @@ trait ActiveRecordLinked {//DONE
 
 
 		//Случай непонятный
-		return '';
+		return null;
 
 	}
 	
@@ -88,8 +92,7 @@ trait ActiveRecordLinked {//DONE
 		$results = array();
 		$current_step = $this;
 		while (!$current_step->isEmpty && $antireqursy < 100){
-			$results = array_merge($results, $current_step->fast_all_of('id'));
-			//$results = array_merge( $current_step->fast_all_of('id'),$results);
+			$results = array_merge($results, $current_step->all_of('id'));
 			$current_step = $current_step->linked($what);
 			$antireqursy++;
 		}
