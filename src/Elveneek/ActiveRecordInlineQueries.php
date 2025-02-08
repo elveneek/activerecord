@@ -13,14 +13,26 @@ trait ActiveRecordInlineQueries {
 		return $_count_result->counting;
 	}
 	
-	function truncate($are_you_sure=false)
-	{
-		if($are_you_sure===true){
-			d()->db->exec('TRUNCATE TABLE ' . et($this->_options['table']));
-		}else{
-			die('Произошла непредвиденная ошибка. Использование truncate без подтверждения запрещено. Возможно, это ошибка.');
-		}
-	}
+    /**
+     * Truncate the table associated with the calling model class.
+     *
+     * @param bool $areYouSure Must be true to proceed with the truncation.
+     * @return void
+     */
+    public static function truncate($areYouSure = false)
+    {
+        if ($areYouSure !== true) {
+            throw new \Exception('You must pass true to the $areYouSure parameter to truncate the table.');
+        }
+
+        $calledClass = get_called_class();
+        if (substr($calledClass, -5) == '_safe') {
+            $calledClass = substr($calledClass, 0, -5);
+        }
+        $table = self::one_to_plural(strtolower($calledClass));
+        $query = "TRUNCATE TABLE " . self::DB_FIELD_DEL . $table . self::DB_FIELD_DEL;
+        self::$db->exec($query);
+    }
 	
 		//CRUD
 	public function delete()
