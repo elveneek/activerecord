@@ -98,6 +98,7 @@ test('LIKE queries', function () {
     expect(Product::where('title LIKE ?', ['%product%'])->count)->toBe(5);
     expect(Product::where('title LIKE ?', ['Fourth%'])->title)->toBe('Fourth product');
     expect(Product::where('title LIKE ?', ['Fifth%'])->title)->toBe('Fifth Product');
+    expect(Product::where('title LIKE ?', 'Fifth%')->title)->toBe('Fifth Product');
 });
 
 test('NULL checks and optional fields', function () {
@@ -163,6 +164,63 @@ test('Unselected column returns null', function () {
     
     // Then verify title returns null when only selecting id and sort
     expect(Product::all()->select('id, sort')->find_by('id', 1)->title)->toBeNull();
+});
+
+test('GROUP BY operations', function () {
+    // Test grouping by category_id
+    $byCategory = Product::all()
+        ->select('category_id, COUNT(*) as cnt')
+        ->group_by('category_id')
+        ->order_by('category_id');
+    expect($byCategory[0]->category_id)->toBe(1);
+    expect($byCategory[0]->cnt)->toBe(3);
+    expect($byCategory[1]->category_id)->toBe(2);
+    expect($byCategory[1]->cnt)->toBe(2);
+
+    // Test grouping by brand_id including NULL values
+    $byBrand = Product::all()
+        ->select('brand_id, COUNT(*) as cnt')
+        ->group_by('brand_id')
+        ->order_by('brand_id');
+    expect($byBrand[0]->brand_id)->toBeNull();
+    expect($byBrand[0]->cnt)->toBe(1);
+    expect($byBrand[1]->brand_id)->toBe(1);
+    expect($byBrand[1]->cnt)->toBe(2);
+    expect($byBrand[2]->brand_id)->toBe(2);
+    expect($byBrand[2]->cnt)->toBe(1);
+    expect($byBrand[3]->brand_id)->toBe(3);
+    expect($byBrand[3]->cnt)->toBe(1);
+
+    // Test grouping with multiple fields
+    $byBrandAndCategory = Product::all()
+        ->select('brand_id, category_id, COUNT(*) as cnt')
+        ->group_by('brand_id, category_id')
+        ->where('brand_id IS NOT NULL')
+        ->order_by('brand_id, category_id');
+    expect($byBrandAndCategory[0]->brand_id)->toBe(1);
+    expect($byBrandAndCategory[0]->category_id)->toBe(1);
+    expect($byBrandAndCategory[0]->cnt)->toBe(1);
+    expect($byBrandAndCategory[1]->brand_id)->toBe(1);
+    expect($byBrandAndCategory[1]->category_id)->toBe(2);
+    expect($byBrandAndCategory[1]->cnt)->toBe(1);
+    expect($byBrandAndCategory[2]->brand_id)->toBe(2);
+    expect($byBrandAndCategory[2]->category_id)->toBe(1);
+    expect($byBrandAndCategory[2]->cnt)->toBe(1);
+    expect($byBrandAndCategory[3]->brand_id)->toBe(3);
+    expect($byBrandAndCategory[3]->category_id)->toBe(2);
+    expect($byBrandAndCategory[3]->cnt)->toBe(1);
+
+    // Test grouping with HAVING clause
+    $popularCategories = Product::all()
+        ->select('category_id, COUNT(*) as cnt')
+        ->group_by('category_id')
+        ->having('COUNT(*) > ?', 2)
+        ->order_by('category_id');
+
+        
+    expect($popularCategories[0]->category_id)->toBe(1);
+    expect($popularCategories[0]->cnt)->toBe(3);
+    expect($popularCategories->count)->toBe(1);
 });
 
 /*

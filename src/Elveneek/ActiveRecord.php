@@ -43,6 +43,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 	public $queryOffset = '';
 	public $queryOrder = ' ORDER BY ' . ActiveRecord::DB_FIELD_DEL . 'sort' . ActiveRecord::DB_FIELD_DEL . ' ';
 	public $queryGroupBy = '';
+	public $queryHaving = '';
 	public $queryNew = false;
 	public $queryTree = false;
 	public $queryCalcRows = false;
@@ -430,6 +431,18 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 		return $this;
 	}
 
+	public function having(...$args)
+	{
+		$this->queryReady = false;
+		$this->queryDisablePrepare = true;
+		
+		// Store the having condition and params similar to where()
+		$this->queryHaving = $args[0];
+		$this->queryConditionsParams['having'] = array_slice($args, 1);
+		
+		return $this;
+	}
+
 	public function select($select)
 	{
 		$this->queryReady = false;
@@ -519,6 +532,41 @@ abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //ext
 
 		if ($this->queryGroupBy != '') {
 			$_query_string .=  ' ' . $this->queryGroupBy . ' ';
+		}
+		if ($this->queryHaving != '') {
+			// Handle parameter substitution for having clause
+			$_conditions = explode('?', ' ' . $this->queryHaving . ' ');
+			$_condition = '';
+			if (isset($this->queryConditionsParams['having'])) {
+				for ($i = 1; $i <= count($_conditions) - 1; $i++) {
+					$param = $this->queryConditionsParams['having'][$i - 1];
+					if (is_array($param)) {
+						if (empty($param)) {
+							$param = ' null ';
+						} else {
+							foreach ($param as $key => $value) {
+								if (is_null($value)){
+									unset($param[$key]);
+									continue;
+								}
+								$param[$key] = ActiveRecord::$db->quote($param[$key]);
+							}
+							$param = implode(", ", array_unique($param));
+						}
+					} else {
+						if (is_null($param)) {
+							$param = 'null';
+						} else {
+							$param = ActiveRecord::$db->quote($param);
+						}
+					}
+					$_condition .= $_conditions[$i - 1] . " " . $param . " ";
+				}
+				$_condition .= $_conditions[$i - 1];
+				$_query_string .= ' HAVING ' . $_condition;
+			} else {
+				$_query_string .= ' HAVING ' . $this->queryHaving;
+			}
 		}
 		if ($this->queryOrder != '') {
 			$_query_string .=  $this->queryOrder;
