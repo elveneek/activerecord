@@ -1084,35 +1084,6 @@ return $_query_string;
 	}
 
 
-	function plus(int | array | ActiveRecord $elements = array())
-	{
-		$curr_array = $this->all_of('id');
-		if (is_numeric($elements)) {
-			$curr_array[] = $elements;
-			return ActiveRecord::fromTable($this->table)->_where('id IN (?)', $curr_array);
-		}
-		if (is_object($elements)) {
-			$elements = $elements->all_of('id');
-			$curr_array = array_merge($curr_array, $elements);
-			return ActiveRecord::fromTable($this->table)->_where('id IN (?)', $curr_array);
-		}
-		if (is_array($elements) && is_numeric($elements[0])) {
-			$curr_array = array_merge($curr_array, $elements);
-			return ActiveRecord::fromTable($this->table)->_where('id IN (?)', $curr_array);
-		}
-		if (is_array($elements) && isset($elements[0]) && is_numeric($elements[0]['id'])) {
-
-
-			$result_array = array();
-			foreach ($elements[0] as $value) {
-				$result_array[] = $value['id'];
-			}
-			$curr_array = array_merge($curr_array, $result_array);
-			return ActiveRecord::fromTable($this->table)->_where('id IN (?)', $curr_array);
-		}
-		return $this;
-	}
-
 
 	function _stub()
 	{

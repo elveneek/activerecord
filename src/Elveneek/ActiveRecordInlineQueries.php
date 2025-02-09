@@ -38,14 +38,12 @@ trait ActiveRecordInlineQueries {
 	public function delete()
 	{
 		//FIXME: надо написать
-		return;
-		if (!$this->_options['queryready']) {
-				$this->fetch_data_now();
+		if ($this->queryReady===false) {
+			$this->fetch_data_now();
 		}
-			
 		if(isset($this->_data[0])){
 			$_query_string='delete from '.ActiveRecord::DB_FIELD_DEL.''.$this->_options['table'] . ActiveRecord::DB_FIELD_DEL." where ".ActiveRecord::DB_FIELD_DEL."id".ActiveRecord::DB_FIELD_DEL." = '".$this->_data[0]['id']."'";
-			doitClass::$instance->db->exec($_query_string);
+			self::$db->exec($_query_string);
 		}
 		ActiveRecord::$_queries_cache = array();
 		return $this;
