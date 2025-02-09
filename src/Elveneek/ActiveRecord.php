@@ -749,7 +749,7 @@ return $_query_string;
 			return $this->linked(substr($name, 1));
 		}
 
-		/*
+		
 		//FIXME: убрали to_*. Возможно, оно и нужно? Или нет? Наверное надо вынести в отдельный метод для чисто кода, типа $user->to('products')
 		if (substr($name,0,3)=='to_') {
 			if ($this->queryReady===false) {
@@ -757,21 +757,21 @@ return $_query_string;
 			}
 
 			$target_table = substr($name,3);
-			if($target_table > $this->$table){
-				$many_to_many_table = $this->$table.'_to_'.$target_table;
+			if($target_table > $this->table){
+				$many_to_many_table = $this->table.'_to_'.$target_table;
 			}else{
-				$many_to_many_table = $target_table.'_to_'.$this->$table;
+				$many_to_many_table = $target_table.'_to_'.$this->table;
 			}
 
 			$column = ActiveRecord::plural_to_one(strtolower(substr($name,3))).'_id';
 
-			if(isset($this->_data[0])){
+			if(isset($this->_data[$this->_cursor])){
 				//d()->bad_table = et($many_to_many_table ); //FIXME: другие способы определять ошибку
 				$result = ActiveRecord::$db->query(
 					"SELECT " . ActiveRecord::DB_FIELD_DEL . $column . ActiveRecord::DB_FIELD_DEL .
 					" FROM ". ($many_to_many_table ).  //FIXME: fetch() ???
 					" WHERE ". ActiveRecord::DB_FIELD_DEL . $this->pluralToOne . "_id". ActiveRecord::DB_FIELD_DEL ." = ". (int) $this->_data[$this->_cursor]->id //FIXME: может ли id null=>0?
-				)->fetchAll(PDO::FETCH_COLUMN);
+				)->fetchAll(\PDO::FETCH_COLUMN);
 				//FIXME: переподключение
 				// et() не нужен, потому что ['"',"'",'\\',' ','.','*','/','`',')'] не может быть при вызове через стрелочку
 				return implode(',', $result);
@@ -780,7 +780,7 @@ return $_query_string;
 			}
 
 		}
-		*/
+		
 
 		$as_substr = strpos($name, '_as_');
 		if ($as_substr !== false) {

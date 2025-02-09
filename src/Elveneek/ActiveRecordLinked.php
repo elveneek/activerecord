@@ -56,19 +56,12 @@ trait ActiveRecordLinked {//DONE
 		
 		if($target_table_exists){ //Проверяем что существует таблица categories
 			$column_name = ActiveRecord::plural_to_one($tablename).'_id'; //category_id
-			
-		
-			
 			if($this->column_exists($column_name, $this->table)){
 				//Получаем массив идентификаторов
 				$ids = $this->all_of($column_name);
-				var_dump($column_name);
-				var_dump($this->table);
 				//FIXME модели вида ProductCategory
 				$_modelname=ActiveRecord::plural_to_one(strtolower($tablename));
 				$_modelname = strtoupper($_modelname[0]).substr($_modelname,1);
-				var_dump($_modelname); 
-				var_dump($ids);
 				return (new $_modelname())->where('id IN (?)', $ids);
 			}
 		}
