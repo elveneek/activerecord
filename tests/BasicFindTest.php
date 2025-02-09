@@ -24,6 +24,7 @@ test('basic static calls and fabrics', function () {
     expect(Product::find_by('id', 2)->id)->toBe(2);
     expect(Product::all()->find_by('id', 2)->id)->toBe(2);
     expect(Product::all()->count)->toBe(5);
+    expect(Product::all()->only_count)->toBe(5);
 
     expect(Product::w("id", 1)->id)->toBe(1);
     expect(Product::all()->w("id", 1)->id)->toBe(1);

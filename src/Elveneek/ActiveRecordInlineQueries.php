@@ -51,7 +51,6 @@ trait ActiveRecordInlineQueries {
 		return $this;
 	}
 
-	//ОН сука медленный
 	function only_count()
 	{
 		if ($this->queryReady===false) {
@@ -61,7 +60,7 @@ trait ActiveRecordInlineQueries {
 				return 0;
 			}
 		}
-		return $this->_data[0]['_only_count'];
+		return $this->_data[0]->_only_count;
 	}
 
 	
