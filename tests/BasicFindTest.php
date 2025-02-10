@@ -16,6 +16,7 @@ beforeAll(function () {
 
 test('basic static calls and fabrics', function () {
     expect(Product::find(2)->id)->toBe(2);
+    expect(Product::f(2)->id)->toBe(2);
     expect(Product::where('id <> 3')->where('id<5 and id > 2')->id)->toBe(4);
     expect(Product::all()->where('id<3 and id > 1')->id)->toBe(2);
     expect(Product::where('id<3 and id > 1')->id)->toBe(2);
