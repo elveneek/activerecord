@@ -78,6 +78,11 @@ test('Plus and linked test', function () {
 test('To array and json conversion', function () {
     expect(json_decode(Product::all()->select('id, title')->where('id IN (?)', [1,2,3])->to_json, true))
         ->toEqualCanonicalizing(json_decode('[{"id":1,"title":"First product"}, {"id":2,"title":"Second product"},{"id":3,"title":"Third product"}]', true));
+
+    expect(json_decode(json_encode(Product::all()->select('id, title')->where('id IN (?)', [1,2,3])), true))
+        ->toEqualCanonicalizing(json_decode('[{"id":1,"title":"First product"}, {"id":2,"title":"Second product"},{"id":3,"title":"Third product"}]', true));
+
+        
     
     expect(Product::all()->select('id, title')->order_by('id desc')->where('id IN (?)', [1,2,3])->to_json)
         ->toBe('[{"id":3,"title":"Third product"},{"id":2,"title":"Second product"},{"id":1,"title":"First product"}]');

@@ -7,7 +7,7 @@ use PDOStatement;
 define('SQL_NULL', 'CONST' . md5(time()) . 'MYSQL_NULL_CONST' . rand()); //FIXME однозначно. Например, ->where('category_id = ?', null), почему бы и нет В Yii2 устроено странно ->andWhere(['is', 'activated_at', new \yii\db\Expression('null')]) для положительных и ->andWhere(['not', ['activated_at' => null]]) для отрицательных, они не приемлят обычный null
 //define ('ActiveRecord::DB_FIELD_DEL', '`');	//FIXME постргя не должна устанавливаться сменой константы. На крайний случай константа класса в конце концов или забить на поддержку постгри на данном этапе
 //Класс Active Record, обеспечивающий простую добычу данных
-abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable //extends ArrayIterator
+abstract class ActiveRecord implements \ArrayAccess, \Iterator, \Countable, \JsonSerializable //extends ArrayIterator
 {
 	public static $db;
 	const NAMED_STATIC_FUNCTIONS = ['where' => true, 'stub' => true, 'find_by' => true, 'w' => true, 'f' => true, 'all_of' => true]; //Эти функции доступны как статически, так и динамически. Предполагается, что для каждой из них есть соответсвующий динамический метод класса, начинающийся на "_"
@@ -1140,6 +1140,25 @@ return $_query_string;
 			$this->_count = count($this->_data);
 		}
 		return json_decode(json_encode($this->_data), true);  
+	}
+
+	public function jsonSerialize(): mixed
+	{
+		if ($this->queryReady === false) {
+			$this->fetch_data_now();
+		}
+
+		//Получаем все данные до конца.
+		if (!$this->isFetchedAll) {
+			while ($row = $this->currentPDOStatement->fetch()) {
+				$this->fetchedCount++;
+				$this->_data[] = $row;
+			}
+			$this->isFetchedAll = true;
+			$this->_count = count($this->_data);
+		}
+
+		return $this->_data;
 	}
 
 	function to_json()
