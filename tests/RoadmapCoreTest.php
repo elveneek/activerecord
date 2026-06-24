@@ -69,6 +69,40 @@ test('safe where forms and mutable grouped callback compile predictably', functi
         ->and(Product::where('menu_id', null)->count())->toBe(5);
 });
 
+test('nested AND and OR groups preserve parentheses bindings and results', function () {
+    $query = Product::where('category_id', 1)
+        ->whereGroup(function ($query) {
+            $query->where('id', 1)
+                ->orWhereGroup(function ($query) {
+                    $query->where('brand_id', 2)
+                        ->where('title', 'Second product');
+                });
+        })
+        ->orderBy('id');
+
+    expect($query->toSql())
+        ->toContain('WHERE `category_id` = ? AND (`id` = ? OR (`brand_id` = ? AND `title` = ?))')
+        ->and($query->bindings())->toBe([1, 1, 2, 'Second product'])
+        ->and($query->pluck('id'))->toBe([1, 2]);
+});
+
+test('callable where and orWhere support recursively nested groups', function () {
+    $query = Product::where(function ($query) {
+        $query->where('category_id', 2)
+            ->where('brand_id', 3);
+    })->orWhere(function ($query) {
+        $query->where('category_id', 1)
+            ->where(function ($query) {
+                $query->where('brand_id', 2)
+                    ->orWhere('id', 5);
+            });
+    })->orderBy('id');
+
+    expect($query->toSql())
+        ->toContain('WHERE (`category_id` = ? AND `brand_id` = ?) OR (`category_id` = ? AND (`brand_id` = ? OR `id` = ?))')
+        ->and($query->bindings())->toBe([2, 3, 1, 2, 5])
+        ->and($query->pluck('id'))->toBe([2, 3, 5]);
+});
 test('identity map reuses complete rows and reloads missing partial columns', function () {
     Product::flushIdentityCache();
     \Elveneek\DB::flushQueryLog();

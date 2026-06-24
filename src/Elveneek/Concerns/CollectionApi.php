@@ -193,10 +193,6 @@ trait CollectionApi
         $serializationStack[$identity] = true;
         $base = $row->visibleColumns === null ? $row->state->attributes : array_intersect_key($row->state->attributes, $row->visibleColumns);
         $attributes = array_merge($base, $row->extras);
-        $visible = $this->metadata->visible();
-        $attributes = $visible
-            ? array_intersect_key($attributes, array_flip($visible))
-            : array_diff_key($attributes, array_flip($this->metadata->hidden()));
         foreach ($this->metadata->appends() as $append) {
             $attributes[$append] = $this->modelForRow($row, $this->boundContext ?? $this->newCollection([$row], true), 0)->{$append};
         }
@@ -205,6 +201,10 @@ trait CollectionApi
                 $attributes[$name] = $relation->toArray();
             }
         }
+        $visible = $this->metadata->visible();
+        $attributes = $visible
+            ? array_intersect_key($attributes, array_flip($visible))
+            : array_diff_key($attributes, array_flip($this->metadata->hidden()));
         unset($serializationStack[$identity]);
         return $attributes;
     }

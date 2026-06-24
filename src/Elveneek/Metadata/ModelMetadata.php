@@ -71,8 +71,12 @@ final class ModelMetadata
             return null;
         }
         $cast = $this->casts()[$field] ?? null;
-        if ($cast === null && ($field === $this->primaryKey() || str_ends_with($field, '_id'))) {
-            $cast = 'int';
+        if ($cast === null) {
+            $cast = match (true) {
+                $field === $this->primaryKey(), str_ends_with($field, '_id') => 'int',
+                str_starts_with($field, 'is_') => 'bool',
+                default => null,
+            };
         }
         if (is_string($cast) && enum_exists($cast) && is_subclass_of($cast, \BackedEnum::class)) {
             return $database ? ($value instanceof \BackedEnum ? $value->value : $value) : $cast::from($value);

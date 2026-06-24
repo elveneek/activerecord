@@ -66,7 +66,7 @@ test('linked connections', function () {
     expect($category->_categories_to_products->_products->_categories->_categories_to_products->_products->_brands->count())->toBe(3);
 });
 
-test('linked to_', function () {
+test('to_ does not guess a pivot table', function () {
     $category = Category::find(1);
-    expect($category->to_products)->toBe('1,2,4');
+    expect($category->to_products)->toBeNull();
 });

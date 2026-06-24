@@ -3,10 +3,9 @@
 namespace Elveneek\Relations;
 
 use Elveneek\ActiveRecord;
-use Elveneek\DB;
 use Elveneek\Metadata\Inflector;
-use Elveneek\Query\MySqlGrammar;
 
+/** Manager for inferred direct belongs-to/has-many relations. */
 final class RelationManager
 {
     public function __construct(private ActiveRecord $owner, private string $name)
@@ -20,6 +19,9 @@ final class RelationManager
 
     public function associate(?ActiveRecord $record): ActiveRecord
     {
+        if ($this->name !== Inflector::singular($this->name)) {
+            throw new \LogicException('associate() is available only for a direct belongs-to relation.');
+        }
         $this->owner->{$this->name . '_id'} = $record?->id;
         return $this->owner;
     }
@@ -31,57 +33,23 @@ final class RelationManager
 
     public function attach(int|array $ids, array $attributes = []): self
     {
-        foreach (is_array($ids) ? $ids : [$ids] as $id) {
-            $this->writePivot((int) $id, $attributes, false);
-        }
-        return $this;
+        throw $this->explicitManyToManyRequired('attach');
     }
 
     public function detach(int|array|null $ids = null): self
     {
-        $related = $this->owner->related($this->name);
-        if (!$related) {
-            return $this;
-        }
-        $ownerTable = $this->owner->table;
-        $targetTable = $related->table;
-        $pivot = min($ownerTable, $targetTable) . '_to_' . max($ownerTable, $targetTable);
-        $ownerKey = Inflector::singular($ownerTable) . '_id';
-        $targetKey = Inflector::singular($targetTable) . '_id';
-        $sql = 'DELETE FROM ' . MySqlGrammar::quoteIdentifier($pivot) . ' WHERE ' . MySqlGrammar::quoteIdentifier($ownerKey) . ' = ?';
-        $bindings = [$this->owner->id];
-        if ($ids !== null) {
-            $ids = is_array($ids) ? $ids : [$ids];
-            $sql .= ' AND ' . MySqlGrammar::quoteIdentifier($targetKey) . ' IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
-            array_push($bindings, ...$ids);
-        }
-        DB::execute($sql, $bindings);
-        return $this;
+        throw $this->explicitManyToManyRequired('detach');
     }
 
     public function sync(array $ids): self
     {
-        $this->detach();
-        return $this->attach($ids);
+        throw $this->explicitManyToManyRequired('sync');
     }
 
-    private function writePivot(int $id, array $attributes, bool $replace): void
+    private function explicitManyToManyRequired(string $operation): \LogicException
     {
-        $related = $this->owner->related($this->name);
-        if (!$related) {
-            throw new \RuntimeException("Cannot resolve relation {$this->name}.");
-        }
-        $ownerTable = $this->owner->table;
-        $targetTable = $related->table;
-        $pivot = min($ownerTable, $targetTable) . '_to_' . max($ownerTable, $targetTable);
-        $values = array_merge([
-            Inflector::singular($ownerTable) . '_id' => $this->owner->id,
-            Inflector::singular($targetTable) . '_id' => $id,
-        ], $attributes);
-        $fields = array_keys($values);
-        $sql = 'INSERT INTO ' . MySqlGrammar::quoteIdentifier($pivot) . ' ('
-            . implode(',', array_map([MySqlGrammar::class, 'quoteIdentifier'], $fields)) . ') VALUES ('
-            . implode(',', array_fill(0, count($fields), '?')) . ')';
-        DB::execute($sql, array_values($values));
+        return new \LogicException(
+            "{$operation}() requires an explicitly declared belongsToMany() relation; pivot tables are not inferred.",
+        );
     }
 }

@@ -32,7 +32,6 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
     use Concerns\CollectionApi;
     use Concerns\PersistenceApi;
     use Concerns\RelationsApi;
-    use Concerns\LegacyRelationsApi;
     use Concerns\FluentApi;
     use Concerns\ExplicitRelationsApi;
     use Concerns\RelationQueryApi;
@@ -180,11 +179,18 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         if (in_array($name, ['sum', 'avg', 'min', 'max'], true)) {
             return $this->aggregate($name, (string) $arguments[0]);
         }
+        if ($originalName === 'linked') {
+            return $this->related('_' . (string) $arguments[0]);
+        }
         if ($name === 'related') {
             return $this->related((string) $arguments[0]);
         }
-        if (method_exists($this, $scope = 'scope' . ucfirst($name))) {
-            return $this->{$scope}($this, ...$arguments) ?? $this;
+        if (method_exists($this, $name)) {
+            $method = new \ReflectionMethod($this, $name);
+            $declaringClass = $method->getDeclaringClass()->getName();
+            if (!$method->isStatic() && !$method->isPrivate() && is_subclass_of($declaringClass, self::class)) {
+                return $method->invokeArgs($this, $arguments) ?? $this;
+            }
         }
         if ($this->canResolveRelation($name)) {
             return new Relations\RelationManager($this, $name);
@@ -449,18 +455,18 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         if (method_exists($this, $accessor)) {
             return $this->{$accessor}();
         }
+        if (str_contains($name, '_as_') && !isset($this->metadata->columns()[$name])) {
+            return $this->formatAttributeAs($name);
+        }
         if (method_exists($this, $name)) {
             $method = new \ReflectionMethod($this, $name);
             if ($method->getNumberOfRequiredParameters() === 0 && !str_starts_with($method->getDeclaringClass()->getName(), 'Elveneek\\')) {
                 $value = $this->{$name}();
                 return $value instanceof Relations\RelationDefinition ? $value->get() : $value;
             }
-        }        if (str_starts_with($name, 'to_')) {
-            return implode(',', $this->legacyRelationIds(substr($name, 3)));
         }
-        $relation = ltrim($name, '_');
-        if ($this->canResolveRelation($relation)) {
-            return $this->related($relation);
+        if ($this->canResolveRelation($name)) {
+            return $this->related($name);
         }
         if (isset($this->metadata->columns()[$name])) {
             if (self::$strict && $row && !$row->exposes($name)) {
@@ -523,6 +529,37 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         return method_exists($this, $accessor) ? $this->{$accessor}() : $state->attributes[$field];
     }
 
+    protected function formatAttributeAs(string $name): mixed
+    {
+        $separator = strpos($name, '_as_');
+        $field = substr($name, 0, $separator);
+        $formatter = substr($name, $separator + 4);
+        if ($field === '' || $formatter === '') {
+            throw new \BadMethodCallException("Invalid formatted attribute '{$name}'. Expected field_as_formatter.");
+        }
+
+        $value = $this->{$field};
+        $function = 'as_' . $formatter;
+        if (function_exists($function)) {
+            return $function($value, $field, $this);
+        }
+
+        $class = 'As_' . $formatter;
+        if (class_exists($class)) {
+            if (!method_exists($class, 'call')) {
+                throw new \BadMethodCallException("Formatter class {$class} must declare public static call().");
+            }
+            $call = new \ReflectionMethod($class, 'call');
+            if (!$call->isPublic() || !$call->isStatic()) {
+                throw new \BadMethodCallException("Formatter class {$class}::call() must be public and static.");
+            }
+            return $class::call($value, $field, $this);
+        }
+
+        throw new \BadMethodCallException(
+            "Formatter for '{$name}' was not found: define function {$function}() or class {$class}::call()."
+        );
+    }
     protected function accessorName(string $field): string
     {
         return 'get' . str_replace(' ', '', ucwords(str_replace('_', ' ', $field)));

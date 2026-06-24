@@ -10,34 +10,49 @@ trait RelationsApi
 {
     public function related(string $name): ?ActiveRecord
     {
+        $legacyTraversal = str_starts_with($name, '_');
         $name = ltrim($name, '_');
-        $states = $this->boundRow && $this->boundContext ? $this->boundContext->states() : ($this->boundRow ? [$this->boundRow->state] : $this->ensureCollection()->states());
+        $states = $this->boundRow && $this->boundContext
+            ? $this->boundContext->states()
+            : ($this->boundRow ? [$this->boundRow->state] : $this->ensureCollection()->states());
+
         if ($this->boundRow && array_key_exists($name, $this->boundRow->state->relationCache)) {
             return $this->boundRow->state->relationCache[$name];
         }
-        $sourceIds = array_values(array_filter(array_map(static fn (RecordState $state) => $state->key(), $states), static fn ($id) => $id !== null));
+
+        $sourceIds = array_values(array_filter(
+            array_map(static fn (RecordState $state) => $state->key(), $states),
+            static fn ($id) => $id !== null,
+        ));
         $targetTable = Inflector::plural(Inflector::singular($name));
         $targetClass = $this->modelClassForTable($targetTable);
         if (!$targetClass) {
             return null;
         }
+
         /** @var ActiveRecord $target */
         $target = new $targetClass();
         $foreignKey = Inflector::singular($name) . '_id';
-        $belongsIds = [];
-        foreach ($states as $state) {
-            if (array_key_exists($foreignKey, $state->attributes) && $state->attributes[$foreignKey] !== null) {
-                $belongsIds[] = $state->attributes[$foreignKey];
+        $sourceHasForeign = isset($this->metadata->columns()[$foreignKey])
+            && ($legacyTraversal || $name === Inflector::singular($name));
+
+        if ($sourceHasForeign) {
+            $belongsIds = [];
+            foreach ($states as $state) {
+                if (array_key_exists($foreignKey, $state->attributes) && $state->attributes[$foreignKey] !== null) {
+                    $belongsIds[] = $state->attributes[$foreignKey];
+                }
             }
-        }
-        $sourceHasForeign = isset($this->metadata->columns()[$foreignKey]);
-        $pivotCandidate = $this->pivotTable($this->tableName(), $targetTable);
-        $preferPivot = $sourceHasForeign && $name !== Inflector::singular($name) && $pivotCandidate !== null;
-        if ($sourceHasForeign && !$preferPivot && $belongsIds) {
+
+            if ($belongsIds === []) {
+                return $target->changeQuery($target->query->whereRaw('0 = 1'));
+            }
+
             $result = $targetClass::findMany(array_values(array_unique($belongsIds)));
             if (!$this->boundRow) {
                 return $result;
             }
+
             $result->load();
             foreach ($states as $sourceState) {
                 $foreignId = $sourceState->attributes[$foreignKey] ?? null;
@@ -45,9 +60,7 @@ trait RelationsApi
             }
             return $this->boundRow->state->relationCache[$name];
         }
-        if ($sourceHasForeign && !$preferPivot) {
-            return $target->changeQuery($target->query->whereRaw('0 = 1'));
-        }
+
         $sourceForeign = Inflector::singular($this->tableName()) . '_id';
         if (isset($target->metadata->columns()[$sourceForeign])) {
             $result = $target->changeQuery($target->query->whereIn($sourceForeign, $sourceIds));
@@ -56,16 +69,7 @@ trait RelationsApi
             }
             return $result;
         }
-        $pivot = $this->pivotTable($this->tableName(), $targetTable);
-        if ($pivot) {
-            $sourceKey = Inflector::singular($this->tableName()) . '_id';
-            $targetKey = Inflector::singular($targetTable) . '_id';
-            $query = $target->query
-                ->join($pivot, $pivot . '.' . $targetKey, '=', $targetTable . '.' . $target->primaryKeyName())
-                ->whereIn($pivot . '.' . $sourceKey, $sourceIds)
-                ->distinct();
-            return $target->changeQuery($query);
-        }
+
         return null;
     }
 
@@ -75,7 +79,7 @@ trait RelationsApi
         $current = $this;
         for ($i = 0; $i < 100 && $current && !$current->isEmpty(); $i++) {
             $ids = array_merge($ids, $current->pluck($current->primaryKeyName()));
-            $current = $current->related($relation);
+            $current = $current->related('_' . $relation);
         }
         $class = $this->modelClassForTable(Inflector::plural(Inflector::singular($relation)));
         return $class ? $class::findMany(array_values(array_unique($ids))) : null;
@@ -98,43 +102,51 @@ trait RelationsApi
         if ($name === '') {
             return false;
         }
+
+        $legacyTraversal = str_starts_with($name, '_');
+        $name = ltrim($name, '_');
         $targetTable = Inflector::plural(Inflector::singular($name));
         if (!$this->modelClassForTable($targetTable)) {
             return false;
         }
-        if (isset($this->metadata->columns()[Inflector::singular($name) . '_id'])) {
+
+        $foreignKey = Inflector::singular($name) . '_id';
+        if (($legacyTraversal || $name === Inflector::singular($name)) && isset($this->metadata->columns()[$foreignKey])) {
             return true;
         }
+
         $sourceForeign = Inflector::singular($this->tableName()) . '_id';
-        return isset(self::schemaColumns($targetTable)[$sourceForeign]) || $this->pivotTable($this->tableName(), $targetTable) !== null;
+        return isset(self::schemaColumns($targetTable)[$sourceForeign]);
     }
 
     protected function joinRelation(string $name, string $type): static
     {
         $target = Inflector::plural(Inflector::singular($name));
         $foreign = Inflector::singular($name) . '_id';
-        if (isset($this->metadata->columns()[$foreign])) {
-            return $this->changeQuery($this->query->join($target, $name . '.id', '=', $this->tableName() . '.' . $foreign, $type, $name));
+        if ($name === Inflector::singular($name) && isset($this->metadata->columns()[$foreign])) {
+            return $this->changeQuery($this->query->join(
+                $target,
+                $name . '.id',
+                '=',
+                $this->tableName() . '.' . $foreign,
+                $type,
+                $name,
+            ));
         }
+
         $sourceForeign = Inflector::singular($this->tableName()) . '_id';
         if (isset(self::schemaColumns($target)[$sourceForeign])) {
-            return $this->changeQuery($this->query->join($target, $name . '.' . $sourceForeign, '=', $this->tableName() . '.' . $this->primaryKeyName(), $type, $name));
+            return $this->changeQuery($this->query->join(
+                $target,
+                $name . '.' . $sourceForeign,
+                '=',
+                $this->tableName() . '.' . $this->primaryKeyName(),
+                $type,
+                $name,
+            ));
         }
-        throw new \RuntimeException("Cannot infer relation '{$name}' for join on " . static::class . '.');
-    }
 
-    protected function pivotTable(string $source, string $target): ?string
-    {
-        $candidates = [min($source, $target) . '_to_' . max($source, $target), $source . '_to_' . $target, $target . '_to_' . $source];
-        $sourceKey = Inflector::singular($source) . '_id';
-        $targetKey = Inflector::singular($target) . '_id';
-        foreach (array_unique($candidates) as $table) {
-            $columns = self::schemaColumns($table);
-            if (isset($columns[$sourceKey], $columns[$targetKey])) {
-                return $table;
-            }
-        }
-        return null;
+        throw new \RuntimeException("Cannot infer relation '{$name}' for join on " . static::class . '.');
     }
 
     protected function modelClassForTable(string $table): ?string
