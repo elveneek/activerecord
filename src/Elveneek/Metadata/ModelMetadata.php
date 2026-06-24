@@ -87,7 +87,7 @@ final class ModelMetadata
         $type = strtolower((string) $cast);
         if (str_starts_with($type, 'decimal')) {
             $scale = (int) (explode(':', $type, 2)[1] ?? 2);
-            return $database ? number_format((float) $value, $scale, '.', '') : number_format((float) $value, $scale, '.', '');
+            return $this->formatDecimal($value, $scale);
         }
         return match ($type) {
             'int', 'integer' => (int) $value,
@@ -107,6 +107,53 @@ final class ModelMetadata
         };
     }
 
+    private function formatDecimal(mixed $value, int $scale): string
+    {
+        if ($scale < 0) {
+            throw new \InvalidArgumentException('Decimal scale cannot be negative.');
+        }
+        if (is_float($value)) {
+            return number_format($value, $scale, '.', '');
+        }
+        $string = trim((string) $value);
+        if (!preg_match('/^([+-]?)(\d+)(?:\.(\d*))?$/', $string, $matches)) {
+            if (is_numeric($string)) {
+                return number_format((float) $string, $scale, '.', '');
+            }
+            throw new \InvalidArgumentException("Invalid decimal value: {$string}");
+        }
+        $negative = $matches[1] === '-';
+        $integer = ltrim($matches[2], '0');
+        $integer = $integer === '' ? '0' : $integer;
+        $fraction = $matches[3] ?? '';
+        $kept = substr(str_pad($fraction, $scale, '0'), 0, $scale);
+        $roundDigit = $fraction[$scale] ?? '0';
+        if ($roundDigit >= '5') {
+            $combined = $this->incrementDecimalDigits($integer . $kept);
+            if ($scale > 0) {
+                $combined = str_pad($combined, $scale + 1, '0', STR_PAD_LEFT);
+                $integer = substr($combined, 0, -$scale);
+                $kept = substr($combined, -$scale);
+            } else {
+                $integer = $combined;
+            }
+        }
+        $isZero = trim($integer . $kept, '0') === '';
+        return ($negative && !$isZero ? '-' : '') . $integer . ($scale > 0 ? '.' . $kept : '');
+    }
+
+    private function incrementDecimalDigits(string $digits): string
+    {
+        $digits = $digits === '' ? '0' : $digits;
+        for ($index = strlen($digits) - 1; $index >= 0; $index--) {
+            if ($digits[$index] !== '9') {
+                $digits[$index] = (string) ((int) $digits[$index] + 1);
+                return $digits;
+            }
+            $digits[$index] = '0';
+        }
+        return '1' . $digits;
+    }
     private function staticProperty(string $name): mixed
     {
         if (!property_exists($this->modelClass, $name)) {

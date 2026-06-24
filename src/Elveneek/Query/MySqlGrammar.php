@@ -100,6 +100,11 @@ final class MySqlGrammar
             $sql .= ' LOCK IN SHARE MODE';
         }
 
+        $dependencies = array_merge(
+            $dependencies,
+            $this->predicateDependencies($query->wheres),
+            $this->predicateDependencies($query->havings),
+        );
         return new CompiledQuery($sql, $bindings, array_map([$this, 'bindingType'], $bindings), array_values(array_unique($dependencies)));
     }
 
@@ -198,6 +203,26 @@ final class MySqlGrammar
         return '(' . $sql . ')';
     }
 
+    private function predicateDependencies(array $predicates): array
+    {
+        $dependencies = [];
+        foreach ($predicates as $predicate) {
+            if (($predicate['type'] ?? null) === 'group') {
+                array_push($dependencies, ...$this->predicateDependencies($predicate['wheres'] ?? []));
+                continue;
+            }
+            $subquery = match ($predicate['type'] ?? null) {
+                'in' => $predicate['values'] ?? null,
+                'exists' => $predicate['query'] ?? null,
+                default => null,
+            };
+            if ($subquery instanceof QueryBuilder) {
+                array_push($dependencies, ...$this->compileSelect($subquery)->dependencies);
+            }
+        }
+        return array_values(array_unique($dependencies));
+    }
+
     private function compileSelectable(string $expression): string
     {
         $expression = trim($expression);
@@ -206,18 +231,20 @@ final class MySqlGrammar
         }
         if (preg_match('/^(.+?)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i', $expression, $matches)) {
             $base = trim($matches[1]);
-            $compiled = self::isSimpleIdentifier($base) ? self::quoteIdentifier($base) : $base;
+            if (self::isSimpleIdentifier($base)) {
+                $compiled = self::quoteIdentifier($base);
+            } elseif (preg_match('/^(?:COUNT|SUM|AVG|MIN|MAX)\(\s*(?:\*|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\s*\)$/i', $base)) {
+                $compiled = $base;
+            } else {
+                throw new \Elveneek\Exception\InvalidIdentifierException("Invalid select expression: {$expression}. Use selectRaw() for intentional SQL.");
+            }
             return $compiled . ' AS ' . self::quoteIdentifier($matches[2]);
         }
         if (self::isSimpleIdentifier($expression)) {
             return self::quoteIdentifier($expression);
         }
-        if (preg_match('/[;#]|--|\/\*/', $expression)) {
-            throw new \Elveneek\Exception\InvalidIdentifierException("Unsafe select expression: {$expression}. Use selectRaw() for intentional SQL.");
-        }
-        return $expression; // compatibility for legacy COUNT(*) AS aliases
+        throw new \Elveneek\Exception\InvalidIdentifierException("Invalid select expression: {$expression}. Use selectRaw() for intentional SQL.");
     }
-
     public static function assertIdentifier(string $identifier): void
     {
         if (!self::isSimpleIdentifier($identifier)) {

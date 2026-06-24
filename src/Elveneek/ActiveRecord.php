@@ -297,9 +297,7 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
                 $missing[] = $id;
             }
         }
-        if ($states === [] && $missing !== []) {
-            return null;
-        }
+
         if ($missing !== []) {
             $fetch = new QueryBuilder($this->tableName(), static::class, $this->primaryKeyName());
             if ($this->query->columns !== []) {
@@ -606,6 +604,12 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         self::bumpGeneration($table);
     }
 
+    public static function invalidateTableCache(string $table): void
+    {
+        MySqlGrammar::assertIdentifier($table);
+        self::invalidateTable($table);
+    }
+
     protected static function bumpGeneration(string $table): void
     {
         $key = self::connectionIdentifier() . '|' . $table;
@@ -658,6 +662,22 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
     public static function restoreIdentitySnapshot(array $snapshot): void
     {
         self::identity()->restore($snapshot);
+    }
+
+    public static function captureRuntimeSnapshot(): array
+    {
+        return [
+            'identity' => self::identity()->snapshot(),
+            'queryResultCache' => self::$queryResultCache,
+            'tableGenerations' => self::$tableGenerations,
+        ];
+    }
+
+    public static function restoreRuntimeSnapshot(array $snapshot): void
+    {
+        self::identity()->restore($snapshot['identity']);
+        self::$queryResultCache = $snapshot['queryResultCache'];
+        self::$tableGenerations = $snapshot['tableGenerations'];
     }
     public static function flushIdentityCache(): void
     {

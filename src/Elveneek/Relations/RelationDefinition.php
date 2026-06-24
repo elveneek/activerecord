@@ -67,7 +67,8 @@ final class RelationDefinition
         $target = new $this->targetClass();
         $ownerColumn = Inflector::singular($this->owner->table) . '_id';
         $targetColumn = Inflector::singular($target->table) . '_id';
-        foreach (is_array($ids) ? $ids : [$ids] as $id) {
+        $ids = is_array($ids) ? array_values($ids) : [$ids];
+        foreach ($ids as $id) {
             $values = array_merge([$ownerColumn => $this->owner->{$this->ownerKey}, $targetColumn => $id], $attributes);
             $fields = array_keys($values);
             DB::execute(
@@ -77,11 +78,17 @@ final class RelationDefinition
                 array_values($values),
             );
         }
+        if ($ids !== []) {
+            ActiveRecord::invalidateTableCache($this->pivot());
+        }
         return $this;
     }
 
     public function detach(int|array|null $ids = null): self
     {
+        if ($ids === []) {
+            return $this;
+        }
         $target = new $this->targetClass();
         $ownerColumn = Inflector::singular($this->owner->table) . '_id';
         $targetColumn = Inflector::singular($target->table) . '_id';
@@ -89,19 +96,22 @@ final class RelationDefinition
             . MySqlGrammar::quoteIdentifier($ownerColumn) . ' = ?';
         $bindings = [$this->owner->{$this->ownerKey}];
         if ($ids !== null) {
-            $ids = is_array($ids) ? $ids : [$ids];
+            $ids = is_array($ids) ? array_values($ids) : [$ids];
             $sql .= ' AND ' . MySqlGrammar::quoteIdentifier($targetColumn) . ' IN (' . implode(', ', array_fill(0, count($ids), '?')) . ')';
             array_push($bindings, ...$ids);
         }
         DB::execute($sql, $bindings);
+        ActiveRecord::invalidateTableCache($this->pivot());
         return $this;
     }
 
     public function sync(array $ids): self
     {
-        return $this->detach()->attach($ids);
+        return DB::transaction(function () use ($ids): self {
+            $this->detach();
+            return $this->attach($ids);
+        });
     }
-
     private function belongsToResult(string $targetTable): ActiveRecord
     {
         $id = $this->owner->{$this->foreignKey ?? Inflector::singular($targetTable) . '_id'};

@@ -191,24 +191,25 @@ trait CollectionApi
             return [$this->primaryKeyName() => $row->state->key()];
         }
         $serializationStack[$identity] = true;
-        $base = $row->visibleColumns === null ? $row->state->attributes : array_intersect_key($row->state->attributes, $row->visibleColumns);
-        $attributes = array_merge($base, $row->extras);
-        foreach ($this->metadata->appends() as $append) {
-            $attributes[$append] = $this->modelForRow($row, $this->boundContext ?? $this->newCollection([$row], true), 0)->{$append};
-        }
-        foreach ($row->state->relationCache as $name => $relation) {
-            if ($relation instanceof \Elveneek\ActiveRecord) {
-                $attributes[$name] = $relation->toArray();
+        try {
+            $base = $row->visibleColumns === null ? $row->state->attributes : array_intersect_key($row->state->attributes, $row->visibleColumns);
+            $attributes = array_merge($base, $row->extras);
+            foreach ($this->metadata->appends() as $append) {
+                $attributes[$append] = $this->modelForRow($row, $this->boundContext ?? $this->newCollection([$row], true), 0)->{$append};
             }
+            foreach ($row->state->relationCache as $name => $relation) {
+                if ($relation instanceof \Elveneek\ActiveRecord) {
+                    $attributes[$name] = $relation->toArray();
+                }
+            }
+            $visible = $this->metadata->visible();
+            return $visible
+                ? array_intersect_key($attributes, array_flip($visible))
+                : array_diff_key($attributes, array_flip($this->metadata->hidden()));
+        } finally {
+            unset($serializationStack[$identity]);
         }
-        $visible = $this->metadata->visible();
-        $attributes = $visible
-            ? array_intersect_key($attributes, array_flip($visible))
-            : array_diff_key($attributes, array_flip($this->metadata->hidden()));
-        unset($serializationStack[$identity]);
-        return $attributes;
     }
-
     public function tree(mixed $root = false): array
     {
         $parent = \Elveneek\Metadata\Inflector::singular($this->tableName()) . '_id';

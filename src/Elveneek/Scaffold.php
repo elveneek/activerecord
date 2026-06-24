@@ -24,14 +24,18 @@ class Scaffold
 	}
 	public static function rename_column($table,$field,$new_name)
 	{
+        MySqlGrammar::assertIdentifier($table);
+        MySqlGrammar::assertIdentifier($field);
+        MySqlGrammar::assertIdentifier($new_name);
+        $quotedNewName = MySqlGrammar::quoteIdentifier($new_name);
 		if (substr($field,-3)=='_id' || $field=='sort') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . et($new_name) ." int NULL");
+			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." int NULL");
 		} elseif (substr($field,0,3)=='is_') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . et($new_name) ." tinyint(4) NOT NULL DEFAULT 0");
+			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." tinyint(4) NOT NULL DEFAULT 0");
 		} elseif (substr($field,-3)=='_at') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . et($new_name) ." datetime NULL");
+			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." datetime NULL");
 		} else {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . et($new_name) ." text NULL, DEFAULT CHARACTER SET=utf8");
+			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." text NULL, DEFAULT CHARACTER SET=utf8");
 		}
 		//После выполнения скаффолда сервер перезагружается
 		

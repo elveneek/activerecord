@@ -307,12 +307,16 @@ trait PersistenceApi
 
     public function delete(): static
     {
-        $row = $this->currentRow();
-        $states = $this->boundRow ? [$this->boundRow->state] : ($row ? [$row->state] : []);
-        if (count($states) !== 1) {
-            throw new AmbiguousWriteException('delete() requires exactly one row; use deleteAll() for a set.');
+        if ($this->boundRow) {
+            $state = $this->boundRow->state;
+        } else {
+            $collection = $this->ensureCollection();
+            $first = $collection->rowAt(0);
+            if ($first === null || $collection->rowAt(1) !== null) {
+                throw new AmbiguousWriteException('delete() requires exactly one row; use deleteAll() for a set.');
+            }
+            $state = $first->state;
         }
-        $state = $states[0];
         if ($state->key() === null) {
             throw new AmbiguousWriteException('Cannot delete a record without a primary key.');
         }
@@ -360,13 +364,29 @@ trait PersistenceApi
         if (!$rows) {
             return 0;
         }
+        if ($uniqueBy === []) {
+            throw new \InvalidArgumentException('upsert() requires at least one conflict column.');
+        }
         $model = new static();
         $fields = array_keys($rows[0]);
+        $expectedFields = $fields;
+        sort($expectedFields);
+        foreach (array_merge($uniqueBy, $update) as $field) {
+            MySqlGrammar::assertIdentifier((string) $field);
+            if (!in_array($field, $fields, true)) {
+                throw new \InvalidArgumentException("Upsert column '{$field}' is missing from the input rows.");
+            }
+        }
         $bindings = $valuesSql = [];
         foreach ($rows as $row) {
+            $rowFields = array_keys($row);
+            sort($rowFields);
+            if ($rowFields !== $expectedFields) {
+                throw new \InvalidArgumentException('All upsert rows must contain the same columns.');
+            }
             $valuesSql[] = '(' . implode(', ', array_fill(0, count($fields), '?')) . ')';
             foreach ($fields as $field) {
-                $bindings[] = $row[$field] ?? null;
+                $bindings[] = $model->metadata->castForDatabase((string) $field, $row[$field]);
             }
         }
         $updates = array_map(static fn ($field) => MySqlGrammar::quoteIdentifier($field) . ' = VALUES(' . MySqlGrammar::quoteIdentifier($field) . ')', $update);

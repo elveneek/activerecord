@@ -121,30 +121,49 @@ final class DB
         beginning:
         $attempt++;
         $level = self::$transactionLevels[$key] ?? 0;
-        $identitySnapshot = ActiveRecord::captureIdentitySnapshot();
+        $depth = $level + 1;
+        $runtimeSnapshot = ActiveRecord::captureRuntimeSnapshot();
+        $databaseCommitted = false;
         try {
             if ($level === 0) {
                 $pdo->beginTransaction();
             } else {
                 $pdo->exec('SAVEPOINT active_record_' . $level);
             }
-            self::$transactionLevels[$key] = $level + 1;
+            self::$transactionLevels[$key] = $depth;
             $result = $callback();
-            self::$transactionLevels[$key]--;
+            self::$transactionLevels[$key] = $level;
             if ($level === 0) {
                 $pdo->commit();
-                foreach (self::$afterCommit[$key] ?? [] as $callbackAfterCommit) {
+                $databaseCommitted = true;
+                $callbacks = self::$afterCommit[$key][$depth] ?? [];
+                unset(self::$afterCommit[$key]);
+                foreach ($callbacks as $callbackAfterCommit) {
                     $callbackAfterCommit();
                 }
-                unset(self::$afterCommit[$key]);
             } else {
                 $pdo->exec('RELEASE SAVEPOINT active_record_' . $level);
+                $callbacks = self::$afterCommit[$key][$depth] ?? [];
+                unset(self::$afterCommit[$key][$depth]);
+                if ($callbacks !== []) {
+                    self::$afterCommit[$key][$level] = array_merge(self::$afterCommit[$key][$level] ?? [], $callbacks);
+                }
             }
             return $result;
         } catch (\Throwable $exception) {
-
-            ActiveRecord::restoreIdentitySnapshot($identitySnapshot);
+            if ($databaseCommitted) {
+                throw $exception;
+            }
+            ActiveRecord::restoreRuntimeSnapshot($runtimeSnapshot);
             self::$transactionLevels[$key] = $level;
+            foreach (array_keys(self::$afterCommit[$key] ?? []) as $callbackDepth) {
+                if ($callbackDepth >= $depth) {
+                    unset(self::$afterCommit[$key][$callbackDepth]);
+                }
+            }
+            if ((self::$afterCommit[$key] ?? []) === []) {
+                unset(self::$afterCommit[$key]);
+            }
             if ($level === 0 && $pdo->inTransaction()) {
                 $pdo->rollBack();
                 unset(self::$afterCommit[$key]);
@@ -163,13 +182,13 @@ final class DB
     {
         $pdo = self::connection($connection);
         $key = $connection . ':' . spl_object_id($pdo);
-        if ((self::$transactionLevels[$key] ?? 0) === 0) {
+        $depth = self::$transactionLevels[$key] ?? 0;
+        if ($depth === 0) {
             $callback();
             return;
         }
-        self::$afterCommit[$key][] = $callback;
+        self::$afterCommit[$key][$depth][] = $callback;
     }
-
     private static function recordQuery(array $event): void
     {
         $object = (object) $event;

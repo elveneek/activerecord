@@ -292,9 +292,15 @@ trait QueryApi
 
     public function chunkById(int $size, callable $callback): void
     {
+        if ($size < 1) {
+            throw new \InvalidArgumentException('Chunk size must be greater than zero.');
+        }
+        $baseQuery = $this->query->withoutOrder()->withoutLimitOffset();
         $last = null;
         while (true) {
-            $chunk = $this->copy()->orderBy($this->primaryKeyName())->limit($size);
+            $chunk = $this->copy();
+            $chunk->query = $baseQuery->orderBy($this->primaryKeyName())->limit($size);
+            $chunk->collection = null;
             if ($last !== null) {
                 $chunk->where($this->primaryKeyName(), '>', $last);
             }
