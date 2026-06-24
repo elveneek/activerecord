@@ -36,3 +36,4 @@ composer.phar
 .env
 /.phpunit.result.cache
 
+/.phpunit.cache/
