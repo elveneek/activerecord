@@ -29,7 +29,7 @@ class PDOProxy extends \PDO {
 				$result = parent::query($statement, $fetch_style, $classname, $ctorargs);
 			}
 		}catch  (PDOException $exception) {
-			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
+			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006 && preg_match('/^\\s*(SELECT|SHOW|DESCRIBE|EXPLAIN)\\b/i', $statement)){
 				ActiveRecord::$db = ActiveRecord::connect();
 				return call_user_func_array(array(ActiveRecord::$db, 'query'), func_get_args());
 			}
@@ -58,7 +58,7 @@ class PDOProxy extends \PDO {
 				$result = parent::query($statement, $fetchMode,  ...$fetch_mode_args);
 			}
 		}catch  (\PDOException $exception) {
-			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
+			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006 && preg_match('/^\\s*(SELECT|SHOW|DESCRIBE|EXPLAIN)\\b/i', $statement)){
 				ActiveRecord::$db = ActiveRecord::connect();
 				return call_user_func_array(array(ActiveRecord::$db, 'query'), func_get_args());
 			}
@@ -75,10 +75,6 @@ class PDOProxy extends \PDO {
 		try {
 			return parent::exec($statement);
 		} catch  (\PDOException $exception) {
-			if($exception->getCode() == 'HY000' && $exception->errorInfo[1]==2006){
-				ActiveRecord::$db = ActiveRecord::connect();
-				return ActiveRecord::$db->exec($statement);
-			}
 			throw $exception;
 		}
 	} 

@@ -1,10 +1,14 @@
 <?php
 
-namespace elveneek;
+namespace Elveneek;
+
+use Elveneek\Query\MySqlGrammar;
 class Scaffold
 {
 	public static function create_field($table,$field)
 	{
+        MySqlGrammar::assertIdentifier($table);
+        MySqlGrammar::assertIdentifier($field);
 		if (substr($field,-3)=='_id' || $field=='sort') {
 			ActiveRecord::$db->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` int NULL");
 		} elseif (substr($field,0,3)=='is_') {
@@ -43,7 +47,7 @@ class Scaffold
 				`sort`  int(11) NULL DEFAULT NULL ,
 				PRIMARY KEY (`id`)
 				)
-				ENGINE=MyISAM
+				ENGINE=InnoDB
 				DEFAULT CHARACTER SET=utf8 COLLATE=utf8_general_ci
 				;");
 		}else{
@@ -56,7 +60,7 @@ class Scaffold
 				`sort`  int(11) NULL DEFAULT NULL ,
 				PRIMARY KEY (`id`)
 				)
-				ENGINE=MyISAM
+				ENGINE=InnoDB
 				DEFAULT CHARACTER SET=utf8 COLLATE=utf8_general_ci
 				;");		
 		}
