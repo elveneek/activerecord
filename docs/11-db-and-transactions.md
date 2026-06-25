@@ -34,6 +34,22 @@ DB::setConnection($reportingPdo, 'reporting');
 $pdo = DB::connection('reporting');
 ```
 
+Если `PDO` живет во внешнем контейнере и этот контейнер может заменить объект при reconnect, подключите resolver:
+
+```php
+DB::setConnectionResolver(fn () => doitClass::$instance->db);
+```
+
+`DB::connection()` будет вызывать resolver и возвращать актуальный `PDO`. Для default connection ActiveRecord также синхронизирует `ActiveRecord::$db`, identity map, result cache и schema cache с текущим объектом соединения.
+
+Resolver можно использовать и для именованного подключения:
+
+```php
+DB::setConnectionResolver(fn () => $container->reportingPdo(), 'reporting');
+```
+
+`DB::setConnection($pdo)` отключает resolver для этого имени и снова фиксирует конкретный объект `PDO`. Если нужно только обновить объект без отключения resolver, используйте `DB::replaceConnection($pdo)`. Отключить resolver явно можно через `DB::clearConnectionResolver()`.
+
 Текущий ActiveRecord API работает с default connection. Низкоуровневые `DB::execute()` и `DB::runQuery()` принимают имя connection.
 
 ## `ActiveRecord::connect()`

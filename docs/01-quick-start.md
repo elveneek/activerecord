@@ -24,6 +24,14 @@ DB::setConnection($pdo);
 $pdo = DB::connection();
 ```
 
+Если внешний проект сам владеет `PDO` и может заменить объект при reconnect, используйте resolver:
+
+```php
+DB::setConnectionResolver(fn () => doitClass::$instance->db);
+```
+
+В этом режиме ActiveRecord каждый раз берет актуальный `PDO` из callback. Если callback начнет возвращать новый объект после переподключения, `DB::connection()` и внутренние кеши будут синхронизированы с новым соединением. Обычный `DB::setConnection($pdo)` сохраняет конкретный объект `PDO`; если внешний код позже заменит его, нужно снова вызвать `DB::setConnection($newPdo)` или использовать resolver.
+
 ## Первая модель
 
 ```php

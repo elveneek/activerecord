@@ -15,8 +15,30 @@ final class DB
     private static bool $logging = true;
     private static array $transactionLevels = [];
     private static array $afterCommit = [];
+    private static array $connectionResolvers = [];
 
     public static function setConnection(\PDO $connection, string $name = 'default'): void
+    {
+        unset(self::$connectionResolvers[$name]);
+        self::storeConnection($connection, $name);
+    }
+
+    public static function setConnectionResolver(callable $resolver, string $name = 'default'): void
+    {
+        self::$connectionResolvers[$name] = $resolver;
+    }
+
+    public static function clearConnectionResolver(string $name = 'default'): void
+    {
+        unset(self::$connectionResolvers[$name]);
+    }
+
+    public static function replaceConnection(\PDO $connection, string $name = 'default'): void
+    {
+        self::storeConnection($connection, $name);
+    }
+
+    private static function storeConnection(\PDO $connection, string $name): void
     {
         self::$connections[$name] = $connection;
         if ($name === 'default') {
@@ -26,6 +48,15 @@ final class DB
 
     public static function connection(string $name = 'default'): \PDO
     {
+        if (isset(self::$connectionResolvers[$name])) {
+            $connection = (self::$connectionResolvers[$name])();
+            if (!$connection instanceof \PDO) {
+                throw new \RuntimeException("Database connection resolver '{$name}' did not return a PDO instance.");
+            }
+            self::storeConnection($connection, $name);
+            return $connection;
+        }
+
         $connection = self::$connections[$name] ?? ($name === 'default' ? ActiveRecord::$db : null);
         if (!$connection instanceof \PDO) {
             throw new \RuntimeException("Database connection '{$name}' is not configured.");

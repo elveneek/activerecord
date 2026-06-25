@@ -585,7 +585,15 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
 
     protected static function connectionIdentifier(): string
     {
-        return self::$db instanceof \PDO ? 'default:' . spl_object_id(self::$db) : 'default:none';
+        try {
+            $connection = DB::connection();
+        } catch (\RuntimeException $exception) {
+            if ($exception->getMessage() === "Database connection 'default' is not configured.") {
+                return 'default:none';
+            }
+            throw $exception;
+        }
+        return 'default:' . spl_object_id($connection);
     }
 
     protected static function metadataFor(string $class): ModelMetadata

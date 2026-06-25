@@ -7,7 +7,7 @@
 | Файл | Что делает |
 | --- | --- |
 | `src/Elveneek/ActiveRecord.php` | Главный публичный фасад модели. Собирает traits, хранит query, collection, bound row, metadata, кэши, `connect()`, `find()`, magic access, casts/accessors/relation routing. |
-| `src/Elveneek/DB.php` | Статический сервис подключения, query builder, raw expressions, SQL execution, query log, транзакции и `afterCommit()`. |
+| `src/Elveneek/DB.php` | Статический сервис подключения, resolver внешнего `PDO`, query builder, raw expressions, SQL execution, query log, транзакции и `afterCommit()`. |
 | `src/Elveneek/SchemaMode.php` | Enum `Strict`, `Suggest`, `Evolve` для управления auto schema evolution. |
 | `src/Elveneek/PDOProxy.php` | PDO-наследник для auto reconnect при MySQL `server has gone away`. |
 | `src/Elveneek/Scaffold.php` | Legacy API создания/переименования колонок и создания таблиц. Используется schema evolution. |

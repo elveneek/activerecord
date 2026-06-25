@@ -10,13 +10,13 @@ class Scaffold
         MySqlGrammar::assertIdentifier($table);
         MySqlGrammar::assertIdentifier($field);
 		if (substr($field,-3)=='_id' || $field=='sort') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` int NULL");
+			DB::connection()->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` int NULL");
 		} elseif (substr($field,0,3)=='is_') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` tinyint(4) NOT NULL DEFAULT 0");
+			DB::connection()->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` tinyint(4) NOT NULL DEFAULT 0");
 		} elseif (substr($field,-3)=='_at') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` datetime NULL");
+			DB::connection()->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` datetime NULL");
 		} else {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` text NULL, DEFAULT CHARACTER SET=utf8");
+			DB::connection()->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` text NULL, DEFAULT CHARACTER SET=utf8");
 		}
 		
 		//После выполнения скаффолда сервер перезагружается
@@ -29,13 +29,13 @@ class Scaffold
         MySqlGrammar::assertIdentifier($new_name);
         $quotedNewName = MySqlGrammar::quoteIdentifier($new_name);
 		if (substr($field,-3)=='_id' || $field=='sort') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." int NULL");
+			DB::connection()->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." int NULL");
 		} elseif (substr($field,0,3)=='is_') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." tinyint(4) NOT NULL DEFAULT 0");
+			DB::connection()->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." tinyint(4) NOT NULL DEFAULT 0");
 		} elseif (substr($field,-3)=='_at') {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." datetime NULL");
+			DB::connection()->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." datetime NULL");
 		} else {
-			ActiveRecord::$db->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." text NULL, DEFAULT CHARACTER SET=utf8");
+			DB::connection()->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." text NULL, DEFAULT CHARACTER SET=utf8");
 		}
 		//После выполнения скаффолда сервер перезагружается
 		
@@ -43,7 +43,7 @@ class Scaffold
 	public static function create_table($table,$one_element="")
 	{
 		if($one_element==''){
-			$result = ActiveRecord::$db->exec("CREATE TABLE `".$table."` (
+			$result = DB::connection()->exec("CREATE TABLE `".$table."` (
 				`id`  int(11) NOT NULL AUTO_INCREMENT ,
 				`title`  text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,
 				`created_at`  datetime NULL,		
@@ -55,7 +55,7 @@ class Scaffold
 				DEFAULT CHARACTER SET=utf8 COLLATE=utf8_general_ci
 				;");
 		}else{
-			$result = ActiveRecord::$db->exec("CREATE TABLE `".$table."` (
+			$result = DB::connection()->exec("CREATE TABLE `".$table."` (
 				`id`  int(11) NOT NULL AUTO_INCREMENT ,
 				`title`  text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,
 				`".$one_element."_id`  int(11) NULL DEFAULT NULL ,

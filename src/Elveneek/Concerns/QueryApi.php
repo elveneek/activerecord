@@ -43,7 +43,7 @@ trait QueryApi
     {
         $sql = $this->toSql();
         foreach ($this->bindings() as $binding) {
-            $value = $binding === null ? 'NULL' : self::$db->quote((string) $binding);
+            $value = $binding === null ? 'NULL' : DB::connection()->quote((string) $binding);
             $sql = preg_replace('/\?/', $value, $sql, 1);
         }
         return $sql;
