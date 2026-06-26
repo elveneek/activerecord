@@ -18,9 +18,9 @@ class Scaffold
 		} else {
 			DB::connection()->exec("ALTER TABLE `".$table."` ADD COLUMN `$field` text NULL, DEFAULT CHARACTER SET=utf8");
 		}
-		
+
 		//После выполнения скаффолда сервер перезагружается
-	
+
 	}
 	public static function rename_column($table,$field,$new_name)
 	{
@@ -38,16 +38,16 @@ class Scaffold
 			DB::connection()->exec("ALTER TABLE `".$table."` CHANGE COLUMN `$field` " . $quotedNewName ." text NULL, DEFAULT CHARACTER SET=utf8");
 		}
 		//После выполнения скаффолда сервер перезагружается
-		
-	}	
+
+	}
 	public static function create_table($table,$one_element="")
 	{
 		if($one_element==''){
 			$result = DB::connection()->exec("CREATE TABLE `".$table."` (
 				`id`  int(11) NOT NULL AUTO_INCREMENT ,
 				`title`  text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,
-				`created_at`  datetime NULL,		
-				`updated_at`  datetime NULL,		
+				`created_at`  datetime NULL,
+				`updated_at`  datetime NULL,
 				`sort`  int(11) NULL DEFAULT NULL ,
 				PRIMARY KEY (`id`)
 				)
@@ -59,14 +59,14 @@ class Scaffold
 				`id`  int(11) NOT NULL AUTO_INCREMENT ,
 				`title`  text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,
 				`".$one_element."_id`  int(11) NULL DEFAULT NULL ,
-				`created_at`  datetime NULL,		
-				`updated_at`  datetime NULL,		
+				`created_at`  datetime NULL,
+				`updated_at`  datetime NULL,
 				`sort`  int(11) NULL DEFAULT NULL ,
 				PRIMARY KEY (`id`)
 				)
 				ENGINE=InnoDB
 				DEFAULT CHARACTER SET=utf8 COLLATE=utf8_general_ci
-				;");		
+				;");
 		}
 
 		if(strpos($table,'_to_')!==false){
@@ -79,8 +79,8 @@ class Scaffold
 
 		}
 		//После выполнения скаффолда сервер перезагружается
-		
+
 		return $result;
 	}
-	 
+
 }

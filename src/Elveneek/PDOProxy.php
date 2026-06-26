@@ -1,4 +1,4 @@
-<?php 
+<?php
 namespace Elveneek;
 class PDOProxy extends \PDO {
 
@@ -67,12 +67,12 @@ class PDOProxy extends \PDO {
 			}
 			throw $exception;
 		}
-		
+
 		return($result);
 	}
-	
-	
-	
+
+
+
 	public function exec(string $statement):int|false
 	{
 		try {
@@ -80,5 +80,5 @@ class PDOProxy extends \PDO {
 		} catch  (\PDOException $exception) {
 			throw $exception;
 		}
-	} 
+	}
 }
