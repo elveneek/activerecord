@@ -4,6 +4,8 @@ beforeAll(function () {
     Dotenv\Dotenv::createImmutable(__DIR__)->load();
     \Elveneek\ActiveRecord::$db = \Elveneek\ActiveRecord::connect();
     \Elveneek\ActiveRecord::$db->exec(file_get_contents(__DIR__ . '/data/mysql.sql'));
+    \Elveneek\ActiveRecord::flushIdentityCache();
+    \Elveneek\ActiveRecord::flushSchemaCache();
 });
 
 test('basic save', function () {
@@ -203,7 +205,7 @@ test('save preserves field values after multiple operations', function() {
     // Update another field
     $product->text = "Updated Text";
     $product->save();
-    
+
     // Verify all fields have correct values
     $saved = Product::find($id);
     expect($saved->title)->toBe("Updated Title");

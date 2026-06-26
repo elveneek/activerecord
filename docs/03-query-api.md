@@ -14,6 +14,13 @@ Product::findOrFail(1);      // Product или ModelNotFoundException
 
 `findMany([])` возвращает пустой набор и не делает SQL-запрос.
 
+`find()`, `findOrFail()`, `findOrNull()` учитывают уже построенную цепочку запроса. Поэтому `select()`/`where()` перед ними применяются к результату:
+
+```php
+Product::select('id', 'title')->findOrFail(1); // вернёт только id и title
+Product::where('is_active', true)->find(1);    // найдёт id=1 только среди активных
+```
+
 ## Простые условия
 
 Безопасная форма:
@@ -117,12 +124,14 @@ Product::whereRaw('id IN (?)', [1, 2, 3]);
 ```php
 Product::select('id', 'title');
 Product::select('id, title');
+Product::select('*');                 // все колонки (звёздочка)
+Product::select('distinct title');    // короткий аналог ->distinct()->select('title')
 Product::addSelect('category_id');
 Product::selectRaw('UPPER(title) AS upper_title');
 Product::distinct();
 ```
 
-`select()` принимает только безопасные идентификаторы, `table.column`, `table.*` и простые aggregate-alias выражения вроде `COUNT(*) AS total`. Для SQL-функций используйте `selectRaw()`.
+`select()` принимает безопасные идентификаторы, `table.column`, `table.*`, голую `*`, а также shorthand `distinct <col>` (префикс `DISTINCT` применяется ко всему списку, как в SQL). Простые aggregate-alias выражения вроде `COUNT(*) AS total` тоже разрешены. Для прочих SQL-функций используйте `selectRaw()`.
 
 Алиасы, которых нет в таблице, доступны как extras:
 
@@ -153,6 +162,8 @@ Product::havingRaw('SUM(price) > ?', 10000);
 Product::limit(20);
 Product::offset(40);
 ```
+
+> **Важно про `having()`.** Структурная форма `having('column', '>', value)` компилируется корректно только для **обычных колонок**. Для aggregate-выражений (`COUNT(*)`, `SUM(price)`, …) `having('COUNT(*)', '>', 2)` соберёт некорректный SQL — в таких случаях всегда используйте **raw-форму** `havingRaw('COUNT(*) > ?', 2)`. Raw-форма (`having('COUNT(*) > ?', 2)` с одним строковым аргументом и `havingRaw(...)`) и является рекомендуемой для условий по агрегатам.
 
 Старый `order_by('title DESC, id ASC')` и `group_by('brand_id, category_id')` поддерживаются для совместимости.
 
@@ -243,7 +254,10 @@ Product::all()->count();
 
 ## Агрегаты и значения
 
+`sum()`, `avg()`, `min()`, `max()` можно вызывать и на цепочке, и статически (как `where`). `count()` — это метод экземпляра (он же обслуживает интерфейс `Countable`, поэтому работает и PHP-функция `count($model)`), его вызывают на запросе:
+
 ```php
+Product::all()->count();                       // вся таблица (или count(Product::all()) через Countable)
 Product::where('category_id', 5)->count();
 Product::where('category_id', 5)->sum('price');
 Product::where('category_id', 5)->avg('price');
@@ -297,15 +311,21 @@ $products->loadedCount();   // сколько строк загружено
 
 ## Большие таблицы
 
+`chunkById()` и `eachById()` тоже работают как статические фабрики (как `where`) или на цепочке:
+
 ```php
-Product::where('is_active', true)->eachById(500, function (Product $product) {
+Product::eachById(500, function (Product $product) {
     // одна строка
 });
 
-Product::where('is_active', true)->chunkById(500, function (Product $chunk) {
+Product::chunkById(500, function (Product $chunk) {
     foreach ($chunk as $product) {
         // набор строк
     }
+});
+
+Product::where('is_active', true)->chunkById(500, function (Product $chunk) {
+    // набор строк
 });
 ```
 

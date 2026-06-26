@@ -26,7 +26,7 @@ if (!defined('SQL_NULL')) {
  * @method static static whereIn(string $column, iterable $values)
  * @method static static orderBy(string $column, string $direction = 'asc')
  */
-abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Countable, \JsonSerializable
+abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggregate, \JsonSerializable
 {
     use Concerns\QueryApi;
     use Concerns\CollectionApi;
@@ -73,6 +73,7 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         'whereRaw', 'orWhereRaw', 'select', 'addSelect', 'selectRaw', 'distinct',
         'join', 'leftJoin', 'rightJoin', 'crossJoin', 'joinSub', 'leftJoinSub', 'whereExists', 'whereNotExists', 'whereColumn', 'groupBy', 'groupByRaw',
         'having', 'havingRaw', 'orderBy', 'orderByRaw', 'limit', 'offset', 'with',
+        'withoutOrder', 'withoutLimitOffset',
         'withoutCache', 'withoutIdentityMap', 'remember', 'rememberForever',
         'lockForUpdate', 'sharedLock',
     ];
@@ -116,14 +117,14 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         return $model;
     }
 
-    public static function findOrNull(int|string $id): ?static
+    protected function findOrNull(int|string $id): ?static
     {
-        return static::find($id)->first();
+        return $this->findOne($id)->first();
     }
 
-    public static function findOrFail(int|string $id): static
+    protected function findOrFail(int|string $id): static
     {
-        return static::findOrNull($id)
+        return $this->findOrNull($id)
             ?? throw new ModelNotFoundException(static::class . " [{$id}] was not found.");
     }
 
@@ -163,6 +164,9 @@ abstract class ActiveRecord implements \ArrayAccess, \IteratorAggregate, \Counta
         }
         if (in_array($name, self::QUERY_METHODS, true)) {
             return $this->changeQuery($this->query->{$name}(...$arguments));
+        }
+        if (in_array($name, ['findOrNull', 'findOrFail', 'firstOrCreate', 'updateOrCreate', 'chunkById', 'eachById'], true)) {
+            return $this->{$name}(...$arguments);
         }
         if (in_array($name, ['toArray', 'toJson', 'foundRows', 'saveCurrent', 'addRow', 'allLinked'], true)) {
             return $this->{$name}(...$arguments);

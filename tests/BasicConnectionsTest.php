@@ -4,6 +4,8 @@ beforeAll(function () {
     Dotenv\Dotenv::createImmutable(__DIR__)->load();
     \Elveneek\ActiveRecord::$db = \Elveneek\ActiveRecord::connect();
     \Elveneek\ActiveRecord::$db->exec(file_get_contents(__DIR__ . '/data/mysql.sql'));
+    \Elveneek\ActiveRecord::flushIdentityCache();
+    \Elveneek\ActiveRecord::flushSchemaCache();
 
     if (!class_exists('Product')) {
         class Product extends \Elveneek\ActiveRecord {}

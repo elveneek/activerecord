@@ -2,7 +2,7 @@
 
 ## `foreach`, индексы и count
 
-ActiveRecord реализует `IteratorAggregate`, `ArrayAccess`, `Countable` и `JsonSerializable`.
+ActiveRecord реализует `IteratorAggregate`, `ArrayAccess`, `Countable` и `JsonSerializable`. Поэтому работают `foreach`, `$products[0]`, `isset`, `empty` и `count()`.
 
 ```php
 $products = Product::where('category_id', 5)->orderBy('id');
@@ -13,7 +13,8 @@ foreach ($products as $index => $product) {
 }
 
 $first = $products[0];
-$count = count($products);
+$count = count($products);            // PHP-функция, через Countable
+$count = $products->count();          // метод — то же самое
 ```
 
 Числовой индекс работает с коллекцией. Строковый индекс работает с текущей строкой:
@@ -30,6 +31,24 @@ unset($product['title']);
 Несуществующий числовой индекс возвращает `null`. `isset($products[999])` будет `false`, `empty($products[999])` будет `true`.
 
 Повторные `foreach` работают с начала. После полного `foreach` ручной iterator стоит в конце; можно вызвать `rewind()`.
+
+## Сетки: `slice()`
+
+Для вывода коллекции «рядами» по N штук (карточки, галерея, таблица) есть `slice()`. Он нарезает результат на под-коллекции, каждая из которых — полноценный итерируемый/countable ActiveRecord-набор:
+
+```php
+foreach (Product::all()->orderBy('sort')->slice(3) as $row) {
+    echo '<div class="row">';
+    foreach ($row as $product) {
+        echo '<div class="col">' . $product->title . '</div>';
+    }
+    echo '</div>';
+}
+```
+
+`slice(3)` на 5 записях даст 2 ряда: первый с тремя, второй с двумя (остаток). Каждый ряд поддерживает `count($row)`, `$row[0]`, повторный `foreach`. Размер по умолчанию — `2`. Размер `< 1` бросает `InvalidArgumentException`.
+
+`slice()` материализует весь набор (это шаблонный хелпер для ограниченных выборок); для обработки больших таблиц без загрузки всего используйте `chunkById()`.
 
 Ручные методы iterator-а:
 

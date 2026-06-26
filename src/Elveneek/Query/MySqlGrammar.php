@@ -8,6 +8,11 @@ final class MySqlGrammar
     {
         $bindings = [];
         $select = $query->columns ?: [$query->table . '.*'];
+        $leadingDistinct = false;
+        if (isset($select[0]) && is_string($select[0]) && preg_match('/^\s*DISTINCT\s+/i', $select[0])) {
+            $leadingDistinct = true;
+            $select[0] = preg_replace('/^\s*DISTINCT\s+/i', '', $select[0]);
+        }
         $selectSql = [];
         foreach ($select as $expression) {
             if ($expression instanceof Expression) {
@@ -18,7 +23,7 @@ final class MySqlGrammar
             }
         }
 
-        $sql = 'SELECT ' . ($query->distinctValue ? 'DISTINCT ' : '') . implode(', ', $selectSql)
+        $sql = 'SELECT ' . (($query->distinctValue || $leadingDistinct) ? 'DISTINCT ' : '') . implode(', ', $selectSql)
             . ' FROM ' . self::quoteIdentifier($query->table);
         $dependencies = [$query->table];
 
@@ -226,6 +231,9 @@ final class MySqlGrammar
     private function compileSelectable(string $expression): string
     {
         $expression = trim($expression);
+        if ($expression === '*') {
+            return '*';
+        }
         if (preg_match('/[;#]|--|\/\*/', $expression)) {
             throw new \Elveneek\Exception\InvalidIdentifierException("Unsafe select expression: {$expression}. Use selectRaw() for intentional SQL.");
         }

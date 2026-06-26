@@ -348,14 +348,14 @@ trait PersistenceApi
         self::invalidateTable($model->tableName());
     }
 
-    public static function firstOrCreate(array $where, array $values = []): static
+    protected function firstOrCreate(array $where, array $values = []): static
     {
-        return static::where($where)->first() ?? static::create(array_merge($where, $values))->save();
+        return $this->where($where)->first() ?? static::create(array_merge($where, $values))->save();
     }
 
-    public static function updateOrCreate(array $where, array $values = []): static
+    protected function updateOrCreate(array $where, array $values = []): static
     {
-        $model = static::where($where)->first() ?? static::create($where);
+        $model = $this->where($where)->first() ?? static::create($where);
         return $model->forceFill($values)->save();
     }
 

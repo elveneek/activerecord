@@ -249,6 +249,9 @@ final class QueryBuilder
 
     public function orderBy(string $column, string $direction = 'asc'): self
     {
+        if (trim($column) === '') {
+            return $this->withoutOrder();
+        }
         $direction = strtolower(trim($direction));
         if (!in_array($direction, ['asc', 'desc'], true)) {
             throw new \InvalidArgumentException("Invalid order direction: {$direction}");

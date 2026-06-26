@@ -143,7 +143,7 @@ trait CollectionApi
         if ($state->isDirty() && !$force) {
             throw new \LogicException('Cannot refresh a dirty record without force: true.');
         }
-        $fresh = static::find($state->key())->withoutCache()->firstOrFail();
+        $fresh = (new static())->findOne($state->key())->withoutCache()->firstOrFail();
         $attributes = $fresh->currentRow()->state->attributes;
         $state->attributes = $state->original = $attributes;
         $state->dirty = [];
@@ -180,7 +180,8 @@ trait CollectionApi
         foreach ($this->toArray() as $row) {
             $result[$row[$this->primaryKeyName()]] = $row;
         }
-        return json_encode($result, $pretty === false ? 0 : $pretty, 512, JSON_THROW_ON_ERROR);
+        $flags = $pretty === false ? 0 : $pretty;
+        return json_encode($result, $flags | JSON_THROW_ON_ERROR);
     }
 
     protected function serializeRow(RowView $row): array
@@ -234,5 +235,39 @@ trait CollectionApi
             $data[$field] = $this->metadata->castFromDatabase((string) $field, $value);
         }
         return $data;
+    }
+
+    /**
+     * Нарезает результат на "ряды" по $size записей для шаблонной вёрстки сеткой.
+     *
+     * Возвращает массив ActiveRecord-наборов (по одному на ряд), каждый из которых
+     * полностью итерируем и поддерживает count()/$row[i], как обычная коллекция:
+     *
+     *   foreach (Product::all()->orderBy('id')->slice(3) as $row) {
+     *       echo '<div class="row">';
+     *       foreach ($row as $product) {
+     *           echo $product->title;
+     *       }
+     *       echo '</div>';
+     *   }
+     *
+     * Последний ряд содержит остаток (меньше $size), если число записей не кратно $size.
+     */
+    public function slice(int $size = 2): array
+    {
+        if ($size < 1) {
+            throw new \InvalidArgumentException('Slice size must be greater than zero.');
+        }
+        $rows = $this->ensureCollection()->rows();
+        if ($rows === []) {
+            return [];
+        }
+        $slices = [];
+        foreach (array_chunk($rows, $size) as $chunk) {
+            $slice = new static();
+            $slice->collection = $slice->newCollection($chunk, true);
+            $slices[] = $slice;
+        }
+        return $slices;
     }
 }

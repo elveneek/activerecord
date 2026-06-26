@@ -4,6 +4,8 @@ beforeAll(function () {
     Dotenv\Dotenv::createImmutable(__DIR__)->load();
     \Elveneek\ActiveRecord::$db = \Elveneek\ActiveRecord::connect();
     \Elveneek\ActiveRecord::$db->exec(file_get_contents(__DIR__ . '/data/mysql.sql'));
+    \Elveneek\ActiveRecord::flushIdentityCache();
+    \Elveneek\ActiveRecord::flushSchemaCache();
 
     if (!class_exists('Product')) {
         class Product extends \Elveneek\ActiveRecord {}
@@ -104,14 +106,15 @@ test('native PHP foreach behavior', function () {
     expect($count)->toEqual(0);
 });
 
-test('native PHP count() behavior', function () {
-    // Count should work on normal results
+test('count() method behavior', function () {
+    // count() works via Countable on the collection, and via the method too
     expect(count(Product::all()))->toEqual(5);
+    expect(Product::all()->count())->toEqual(5);
     expect(count(Product::where('id <= ?', 3)))->toEqual(3);
-    
+
     // Count should be 0 for empty results
     expect(count(Product::where('id > ?', 999)))->toEqual(0);
-    
+
     // Count should work after modifications
     $products = Product::all();
     unset($products[0]);

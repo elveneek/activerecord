@@ -3,6 +3,8 @@
 beforeAll(function () {
     Dotenv\Dotenv::createImmutable(__DIR__)->load();
     \Elveneek\ActiveRecord::$db = \Elveneek\ActiveRecord::connect();
+    \Elveneek\ActiveRecord::flushIdentityCache();
+    \Elveneek\ActiveRecord::flushSchemaCache();
 });
 
 if (!class_exists('Product')) {
