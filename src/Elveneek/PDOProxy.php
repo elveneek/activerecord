@@ -9,8 +9,9 @@ class PDOProxy extends \PDO {
 			return parent::prepare($statement, $driver_options);
 		} catch  (\PDOException $exception) {
 			if($exception->getCode() == 'HY000' && $exception->errorInfo[1]==2006){
-				ActiveRecord::$db = ActiveRecord::connect();
-				return ActiveRecord::$db->prepare($statement, $driver_options);
+				$connection = ActiveRecord::connect();
+				DB::replaceConnection($connection);
+				return $connection->prepare($statement, $driver_options);
 			}
 			throw $exception;
 		}
@@ -29,9 +30,10 @@ class PDOProxy extends \PDO {
 				$result = parent::query($statement, $fetch_style, $classname, $ctorargs);
 			}
 		}catch  (PDOException $exception) {
-			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
-				ActiveRecord::$db = ActiveRecord::connect();
-				return call_user_func_array(array(ActiveRecord::$db, 'query'), func_get_args());
+			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006 && preg_match('/^\\s*(SELECT|SHOW|DESCRIBE|EXPLAIN)\\b/i', $statement)){
+				$connection = ActiveRecord::connect();
+				DB::replaceConnection($connection);
+				return call_user_func_array(array($connection, 'query'), func_get_args());
 			}
 			throw $exception;
 		}
@@ -58,9 +60,10 @@ class PDOProxy extends \PDO {
 				$result = parent::query($statement, $fetchMode,  ...$fetch_mode_args);
 			}
 		}catch  (\PDOException $exception) {
-			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006){
-				ActiveRecord::$db = ActiveRecord::connect();
-				return call_user_func_array(array(ActiveRecord::$db, 'query'), func_get_args());
+			if($exception->getCode() === 'HY000' && $exception->errorInfo[1]===2006 && preg_match('/^\\s*(SELECT|SHOW|DESCRIBE|EXPLAIN)\\b/i', $statement)){
+				$connection = ActiveRecord::connect();
+				DB::replaceConnection($connection);
+				return call_user_func_array(array($connection, 'query'), func_get_args());
 			}
 			throw $exception;
 		}
@@ -75,10 +78,6 @@ class PDOProxy extends \PDO {
 		try {
 			return parent::exec($statement);
 		} catch  (\PDOException $exception) {
-			if($exception->getCode() == 'HY000' && $exception->errorInfo[1]==2006){
-				ActiveRecord::$db = ActiveRecord::connect();
-				return ActiveRecord::$db->exec($statement);
-			}
 			throw $exception;
 		}
 	} 
