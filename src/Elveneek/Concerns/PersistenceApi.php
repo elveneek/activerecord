@@ -48,7 +48,7 @@ trait PersistenceApi
             }
             return $this;
         }
-        $state = new RecordState(static::class, $this->tableName(), $this->primaryKeyName(), 'new');
+        $state = new RecordState($this->modelKey(), $this->tableName(), $this->primaryKeyName(), 'new');
         $state->placeholder = $attributes === null;
         foreach ($attributes ?? [] as $field => $value) {
             $state->set((string) $field, $value);
@@ -141,14 +141,14 @@ trait PersistenceApi
             $sql = 'INSERT INTO ' . MySqlGrammar::quoteIdentifier($this->tableName()) . ' ('
                 . implode(', ', array_map([MySqlGrammar::class, 'quoteIdentifier'], $fields)) . ') VALUES ('
                 . implode(', ', $valueSql) . ')';
-            $statement = DB::execute($sql, $bindings, 'default', static::class);
+            $statement = DB::execute($sql, $bindings, 'default', $this->modelKey());
             $id = DB::connection()->lastInsertId();
             $id = ctype_digit((string) $id) ? (int) $id : $id;
             $state->attributes[$this->primaryKeyName()] = $id;
             $this->insert_id = $id;
             if (isset($columns['sort']) && empty($values['sort'])) {
                 DB::execute('UPDATE ' . MySqlGrammar::quoteIdentifier($this->tableName()) . ' SET `sort` = ? WHERE '
-                    . MySqlGrammar::quoteIdentifier($this->primaryKeyName()) . ' = ?', [$id, $id], 'default', static::class);
+                    . MySqlGrammar::quoteIdentifier($this->primaryKeyName()) . ' = ?', [$id, $id], 'default', $this->modelKey());
                 $state->attributes['sort'] = $id;
             }
             foreach ($values as $field => $value) {
@@ -192,9 +192,9 @@ trait PersistenceApi
             $bindings[] = $versionOriginal;
         }
         $statement = DB::execute('UPDATE ' . MySqlGrammar::quoteIdentifier($this->tableName()) . ' SET '
-            . implode(', ', $sets) . $where, $bindings, 'default', static::class);
+            . implode(', ', $sets) . $where, $bindings, 'default', $this->modelKey());
         if ($versionOriginal !== null && $statement->rowCount() === 0) {
-            throw new \Elveneek\Exception\StaleModelException('Optimistic lock failed for ' . static::class . ':' . $state->key());
+            throw new \Elveneek\Exception\StaleModelException('Optimistic lock failed for ' . $this->modelLabel() . ':' . $state->key());
         }
         foreach ($values as $field => $value) {
             if (!$value instanceof Expression) {
@@ -233,7 +233,7 @@ trait PersistenceApi
                 }
                 Scaffold::create_field($this->tableName(), $field);
                 self::flushSchemaCache();
-                $this->metadata = self::metadataFor(static::class);
+                $this->metadata = self::metadataFor($this->metadataKey(), $this->metadataTableOverride());
                 $columns = $this->metadata->columns(true);
             }
         }
@@ -289,7 +289,7 @@ trait PersistenceApi
         }
         [$where, $whereBindings] = $this->compiledWhere();
         $statement = DB::execute('UPDATE ' . MySqlGrammar::quoteIdentifier($this->tableName()) . ' SET '
-            . implode(', ', $sets) . $where, array_merge($bindings, $whereBindings), 'default', static::class);
+            . implode(', ', $sets) . $where, array_merge($bindings, $whereBindings), 'default', $this->modelKey());
         self::invalidateTable($this->tableName());
         return $statement->rowCount();
     }
@@ -322,10 +322,10 @@ trait PersistenceApi
         }
         $sql = 'DELETE FROM ' . MySqlGrammar::quoteIdentifier($this->tableName()) . ' WHERE '
             . MySqlGrammar::quoteIdentifier($this->primaryKeyName()) . ' = ?';
-        $this->affectedRowsValue = DB::execute($sql, [$state->key()], 'default', static::class)->rowCount();
+        $this->affectedRowsValue = DB::execute($sql, [$state->key()], 'default', $this->modelKey())->rowCount();
         $state->status = 'deleted';
-        self::identity()->invalidate($this->connectionKey(), static::class, $state->key());
-        self::identity()->markMissing($this->connectionKey(), static::class, $state->key());
+        self::identity()->invalidate($this->connectionKey(), $this->modelKey(), $state->key());
+        self::identity()->markMissing($this->connectionKey(), $this->modelKey(), $state->key());
         self::bumpGeneration($this->tableName());
         return $this;
     }
@@ -333,7 +333,7 @@ trait PersistenceApi
     public function deleteAll(): int
     {
         [$where, $bindings] = $this->compiledWhere();
-        $statement = DB::execute('DELETE FROM ' . MySqlGrammar::quoteIdentifier($this->tableName()) . $where, $bindings, 'default', static::class);
+        $statement = DB::execute('DELETE FROM ' . MySqlGrammar::quoteIdentifier($this->tableName()) . $where, $bindings, 'default', $this->modelKey());
         self::invalidateTable($this->tableName());
         return $statement->rowCount();
     }

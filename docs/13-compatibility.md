@@ -138,9 +138,11 @@ Inflector::snake('CatalogProduct');
 ActiveRecord::fromTable('products')->w('id', 1)->title;
 ```
 
-Метод строит имя класса из singular-имени таблицы. Для `products` ожидается `Product`.
+Метод строит имя класса из singular-имени таблицы. Для `products` сначала проверяется `Product`: если это наследник `ActiveRecord`, будет использован он.
 
-Если класс лежит в namespace, `fromTable()` все равно ищет глобальный класс по старому соглашению. Для namespaced-кода обычно лучше использовать конкретную модель напрямую.
+Если подходящего ActiveRecord-класса нет или имя занято чужим классом, `fromTable()` возвращает generic table model для указанной таблицы. Это сохраняет старый низкий порог входа без runtime `eval("class Product extends ActiveRecord {}")`.
+
+Подробнее: [Generic table models](14-generic-table-models.md).
 
 ## Legacy raw where
 

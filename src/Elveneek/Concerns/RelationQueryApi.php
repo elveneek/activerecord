@@ -2,7 +2,6 @@
 
 namespace Elveneek\Concerns;
 
-use Elveneek\ActiveRecord;
 use Elveneek\Metadata\Inflector;
 use Elveneek\Query\MySqlGrammar;
 
@@ -31,12 +30,7 @@ trait RelationQueryApi
     private function relationExists(string $relation, ?callable $callback, bool $negated): static
     {
         $targetTable = Inflector::plural(Inflector::singular($relation));
-        $targetClass = $this->modelClassForTable($targetTable);
-        if (!$targetClass) {
-            throw new \RuntimeException("Cannot resolve relation {$relation}.");
-        }
-        /** @var ActiveRecord $target */
-        $target = new $targetClass();
+        $target = $this->modelForTable($targetTable);
         $foreign = Inflector::singular($relation) . '_id';
         if (isset($this->metadata->columns()[$foreign])) {
             $target->whereRaw(
@@ -44,7 +38,7 @@ trait RelationQueryApi
             );
         } else {
             $sourceForeign = Inflector::singular($this->tableName()) . '_id';
-            if (!isset(self::schemaColumns($targetTable)[$sourceForeign])) {
+            if (!isset($target->metadata->columns()[$sourceForeign])) {
                 throw new \RuntimeException("whereHas() currently requires a belongs-to or has-many relation.");
             }
             $target->whereRaw(

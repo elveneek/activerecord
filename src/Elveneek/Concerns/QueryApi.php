@@ -61,14 +61,14 @@ trait QueryApi
 
     public function copy(): static
     {
-        $copy = new static();
+        $copy = $this->newInstance();
         $copy->query = $this->query;
         return $copy;
     }
 
     public function resetQuery(): static
     {
-        return new static();
+        return $this->newInstance();
     }
 
     public function findOne(int|string $id): static
@@ -80,14 +80,14 @@ trait QueryApi
     {
         $result = $this->ensureCollection()->at(0);
         if ($result === null && count($this->query->lookupIds ?? []) === 1) {
-            self::identity()->markMissing($this->connectionKey(), static::class, $this->query->lookupIds[0]);
+            self::identity()->markMissing($this->connectionKey(), $this->modelKey(), $this->query->lookupIds[0]);
         }
         return $result;
     }
 
     public function firstOrFail(): static
     {
-        return $this->first() ?? throw new ModelNotFoundException(static::class . ' query returned no rows.');
+        return $this->first() ?? throw new ModelNotFoundException($this->modelLabel() . ' query returned no rows.');
     }
 
     public function last(): ?static
@@ -130,7 +130,7 @@ trait QueryApi
             return $this->collection->countLoaded();
         }
         $compiled = (new MySqlGrammar())->compileCount($this->query);
-        return (int) DB::execute($compiled->sql, $compiled->bindings, 'default', static::class)->fetchColumn();
+        return (int) DB::execute($compiled->sql, $compiled->bindings, 'default', $this->modelKey())->fetchColumn();
     }
 
     public function foundRows(): int
@@ -139,7 +139,7 @@ trait QueryApi
             return $this->knownTotal;
         }
         $compiled = (new MySqlGrammar())->compileCount($this->query, true);
-        return $this->knownTotal = (int) DB::execute($compiled->sql, $compiled->bindings, 'default', static::class)->fetchColumn();
+        return $this->knownTotal = (int) DB::execute($compiled->sql, $compiled->bindings, 'default', $this->modelKey())->fetchColumn();
     }
 
     public function total(): int
@@ -236,7 +236,7 @@ trait QueryApi
         $query = $this->query->withoutOrder()->withoutLimitOffset()
             ->selectRaw(strtoupper($function) . '(' . MySqlGrammar::quoteIdentifier($field) . ') AS aggregate');
         $compiled = (new MySqlGrammar())->compileSelect($query);
-        $value = DB::execute($compiled->sql, $compiled->bindings, 'default', static::class)->fetchColumn();
+        $value = DB::execute($compiled->sql, $compiled->bindings, 'default', $this->modelKey())->fetchColumn();
         return $value === false || $value === null ? null : $value + 0;
     }
 

@@ -198,9 +198,11 @@ test('fromTable builds a model from a table name when the class exists', functio
         ->and($model->where('id', 1)->first()->title)->toBe('First product');
 });
 
-test('fromTable throws when the matching model class is missing', function () {
-    expect(fn () => \Elveneek\ActiveRecord::fromTable('no_such_table'))
-        ->toThrow(\Elveneek\Exception\MissingModelClassException::class);
+test('fromTable returns a generic table model when the matching model class is missing', function () {
+    $model = \Elveneek\ActiveRecord::fromTable('no_such_table');
+
+    expect($model)->toBeInstanceOf(\Elveneek\TableRecord::class)
+        ->and($model->table)->toBe('no_such_table');
 });
 
 test('one_to_plural and plural_to_one delegate to the inflector', function () {

@@ -25,13 +25,8 @@ trait RelationsApi
             static fn ($id) => $id !== null,
         ));
         $targetTable = Inflector::plural(Inflector::singular($name));
-        $targetClass = $this->modelClassForTable($targetTable);
-        if (!$targetClass) {
-            return null;
-        }
+        $target = $this->modelForTable($targetTable);
 
-        /** @var ActiveRecord $target */
-        $target = new $targetClass();
         $foreignKey = Inflector::singular($name) . '_id';
         $sourceHasForeign = isset($this->metadata->columns()[$foreignKey])
             && ($legacyTraversal || $name === Inflector::singular($name));
@@ -48,7 +43,7 @@ trait RelationsApi
                 return $target->changeQuery($target->query->whereRaw('0 = 1'));
             }
 
-            $result = $targetClass::findMany(array_values(array_unique($belongsIds)));
+            $result = $target->findManyForCurrentModel(array_values(array_unique($belongsIds)));
             if (!$this->boundRow) {
                 return $result;
             }
@@ -81,8 +76,8 @@ trait RelationsApi
             $ids = array_merge($ids, $current->pluck($current->primaryKeyName()));
             $current = $current->related('_' . $relation);
         }
-        $class = $this->modelClassForTable(Inflector::plural(Inflector::singular($relation)));
-        return $class ? $class::findMany(array_values(array_unique($ids))) : null;
+        $target = $this->modelForTable(Inflector::plural(Inflector::singular($relation)));
+        return $target->findManyForCurrentModel(array_values(array_unique($ids)));
     }
 
     public function plus(int|array|ActiveRecord $elements = []): static
@@ -94,7 +89,7 @@ trait RelationsApi
         foreach (is_array($elements) ? $elements : [$elements] as $element) {
             $ids[] = is_array($element) ? ($element[$this->primaryKeyName()] ?? null) : $element;
         }
-        return static::findMany(array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null))));
+        return $this->findManyForCurrentModel(array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null))));
     }
 
     protected function canResolveRelation(string $name): bool
@@ -106,9 +101,7 @@ trait RelationsApi
         $legacyTraversal = str_starts_with($name, '_');
         $name = ltrim($name, '_');
         $targetTable = Inflector::plural(Inflector::singular($name));
-        if (!$this->modelClassForTable($targetTable)) {
-            return false;
-        }
+        $target = $this->modelForTable($targetTable);
 
         $foreignKey = Inflector::singular($name) . '_id';
         if (($legacyTraversal || $name === Inflector::singular($name)) && isset($this->metadata->columns()[$foreignKey])) {
@@ -116,7 +109,7 @@ trait RelationsApi
         }
 
         $sourceForeign = Inflector::singular($this->tableName()) . '_id';
-        return isset(self::schemaColumns($targetTable)[$sourceForeign]);
+        return isset($target->metadata->columns()[$sourceForeign]);
     }
 
     protected function joinRelation(string $name, string $type): static
@@ -146,19 +139,12 @@ trait RelationsApi
             ));
         }
 
-        throw new \RuntimeException("Cannot infer relation '{$name}' for join on " . static::class . '.');
+        throw new \RuntimeException("Cannot infer relation '{$name}' for join on " . $this->modelLabel() . '.');
     }
 
     protected function modelClassForTable(string $table): ?string
     {
-        $short = ucfirst(Inflector::singular($table));
-        $namespace = (new \ReflectionClass(static::class))->getNamespaceName();
-        foreach (array_filter([$namespace ? $namespace . '\\' . $short : null, $short]) as $class) {
-            if (class_exists($class) && is_subclass_of($class, ActiveRecord::class)) {
-                return $class;
-            }
-        }
-        return null;
+        return self::activeRecordClassForTable($table, '', static::class);
     }
 
     protected function eagerLoadPath(ActiveRecord $row, string $path): void

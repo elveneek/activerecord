@@ -57,12 +57,15 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     protected int $affectedRowsValue = 0;
     protected array $lastSaveErrorsValue = [];
     protected ?int $knownTotal = null;
+    protected ?string $runtimeTableOverride = null;
 
     protected static ?IdentityMap $identityMap = null;
     protected static array $metadataCache = [];
     protected static array $schemaCache = [];
     protected static array $queryResultCache = [];
     protected static array $tableGenerations = [];
+    protected static array $tableModelMap = [];
+    protected static array $classTableMap = [];
     protected static bool $strict = false;
     protected static bool $schemaEvolution = true;
 
@@ -80,8 +83,14 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
 
     public function __construct()
     {
-        $this->metadata = self::metadataFor(static::class);
-        $this->query = new QueryBuilder($this->tableName(), static::class, $this->primaryKeyName());
+        $this->runtimeTableOverride = self::$classTableMap[static::class] ?? null;
+        $this->initializeModel();
+    }
+
+    protected function initializeModel(): void
+    {
+        $this->metadata = self::metadataFor($this->metadataKey(), $this->metadataTableOverride());
+        $this->query = new QueryBuilder($this->tableName(), $this->modelKey(), $this->primaryKeyName());
         $defaultOrder = $this->configuredStatic('defaultOrder');
         if (is_string($defaultOrder) && $defaultOrder !== '') {
             $this->query = $this->query->orderBy($defaultOrder);
@@ -125,7 +134,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     protected function findOrFail(int|string $id): static
     {
         return $this->findOrNull($id)
-            ?? throw new ModelNotFoundException(static::class . " [{$id}] was not found.");
+            ?? throw new ModelNotFoundException($this->modelLabel() . " [{$id}] was not found.");
     }
 
     public static function __callStatic(string $name, array $arguments): mixed
@@ -199,13 +208,13 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         if ($this->canResolveRelation($name)) {
             return new Relations\RelationManager($this, $name);
         }
-        throw new \BadMethodCallException(static::class . "::{$name}() does not exist.");
+        throw new \BadMethodCallException($this->modelLabel() . "::{$name}() does not exist.");
     }
 
     protected function changeQuery(QueryBuilder $query): static
     {
         if ($this->boundRow !== null) {
-            $copy = new static();
+            $copy = $this->newInstance();
             $copy->query = $query;
             return $copy;
         }
@@ -217,6 +226,50 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         $this->manualIndex = 0;
         $this->knownTotal = null;
         return $this;
+    }
+
+    protected function newInstance(): static
+    {
+        $model = new static();
+        if ($this->runtimeTableOverride !== null) {
+            $model->useRuntimeTable($this->runtimeTableOverride);
+        }
+        return $model;
+    }
+
+    protected function useRuntimeTable(string $table): static
+    {
+        MySqlGrammar::assertIdentifier($table);
+        $this->runtimeTableOverride = $table;
+        $this->initializeModel();
+        return $this;
+    }
+
+    protected function modelKey(): string
+    {
+        return $this->runtimeTableOverride === null
+            ? static::class
+            : static::class . ':' . $this->runtimeTableOverride;
+    }
+
+    protected function modelLabel(): string
+    {
+        return static::class;
+    }
+
+    protected function metadataKey(): string
+    {
+        return $this->modelKey();
+    }
+
+    protected function metadataTableOverride(): ?string
+    {
+        return $this->runtimeTableOverride;
+    }
+
+    protected function findManyForCurrentModel(array $ids): static
+    {
+        return $this->changeQuery($this->query->whereKeys($ids));
     }
 
     protected function ensureCollection(): RecordCollection
@@ -234,10 +287,10 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
             return $this->collection = $cached;
         }
         $compiled = (new MySqlGrammar())->compileSelect($this->query);
-        $statement = DB::execute($compiled->sql, $compiled->bindings, 'default', static::class);
+        $statement = DB::execute($compiled->sql, $compiled->bindings, 'default', $this->modelKey());
         $this->cacheSourceValue = 'database';
         $this->collection = new RecordCollection(
-            static::class,
+            $this->modelKey(),
             $statement,
             fn (array $row) => $this->hydrateRow($row),
             fn (RowView $row, RecordCollection $context, int $index) => $this->modelForRow($row, $context, $index),
@@ -271,12 +324,12 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         }
         $id = $attributes[$this->primaryKeyName()] ?? null;
         $state = $id !== null && $this->query->identityMapEnabled
-            ? self::identity()->get($this->connectionKey(), static::class, $id)
+            ? self::identity()->get($this->connectionKey(), $this->modelKey(), $id)
             : null;
         if ($state) {
             $state->merge($attributes, array_keys($attributes));
         } else {
-            $state = new RecordState(static::class, $this->tableName(), $this->primaryKeyName(), 'persisted', $attributes);
+            $state = new RecordState($this->modelKey(), $this->tableName(), $this->primaryKeyName(), 'persisted', $attributes);
             if ($id !== null && $this->query->identityMapEnabled) {
                 $state = self::identity()->put($this->connectionKey(), $state);
                 $state->merge($attributes, array_keys($attributes));
@@ -294,22 +347,22 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         $missing = [];
         $required = $this->selectedColumns();
         foreach ($this->query->lookupIds as $id) {
-            $state = self::identity()->get($this->connectionKey(), static::class, $id);
+            $state = self::identity()->get($this->connectionKey(), $this->modelKey(), $id);
             if ($state && $this->stateHasColumns($state, $required)) {
                 $states[(string) $id] = $state;
-            } elseif (!self::identity()->isMissing($this->connectionKey(), static::class, $id)) {
+            } elseif (!self::identity()->isMissing($this->connectionKey(), $this->modelKey(), $id)) {
                 $missing[] = $id;
             }
         }
 
         if ($missing !== []) {
-            $fetch = new QueryBuilder($this->tableName(), static::class, $this->primaryKeyName());
+            $fetch = new QueryBuilder($this->tableName(), $this->modelKey(), $this->primaryKeyName());
             if ($this->query->columns !== []) {
                 $fetch = $fetch->select($this->query->columns);
             }
             $fetch = $fetch->whereKeys($missing);
             $compiled = (new MySqlGrammar())->compileSelect($fetch);
-            $rows = DB::execute($compiled->sql, $compiled->bindings, 'default', static::class)->fetchAll(\PDO::FETCH_ASSOC);
+            $rows = DB::execute($compiled->sql, $compiled->bindings, 'default', $this->modelKey())->fetchAll(\PDO::FETCH_ASSOC);
             foreach ($rows as $data) {
                 $view = $this->hydrateRow($data);
                 if ($view->state->key() !== null) {
@@ -318,13 +371,13 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
             }
             foreach ($missing as $id) {
                 if (!isset($states[(string) $id])) {
-                    self::identity()->markMissing($this->connectionKey(), static::class, $id);
+                    self::identity()->markMissing($this->connectionKey(), $this->modelKey(), $id);
                 }
             }
             $this->cacheSourceValue = 'mixed';
         } else {
             $this->cacheSourceValue = 'identity';
-            DB::recordCache('identity-map', static::class);
+            DB::recordCache('identity-map', $this->modelKey());
         }
         $visible = $this->query->columns === [] ? null : $required;
         $ordered = [];
@@ -348,7 +401,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         }
         $rows = array_map(fn (array $row) => $this->hydrateRow($row), $cached['rows']);
         $this->cacheSourceValue = 'shared';
-        DB::recordCache('query-cache', static::class);
+        DB::recordCache('query-cache', $this->modelKey());
         return $this->newCollection($rows, true);
     }
 
@@ -365,7 +418,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     protected function newCollection(array $rows = [], bool $fullyLoaded = false): RecordCollection
     {
         return new RecordCollection(
-            static::class,
+            $this->modelKey(),
             null,
             fn (array $row) => $this->hydrateRow($row),
             fn (RowView $row, RecordCollection $context, int $index) => $this->modelForRow($row, $context, $index),
@@ -376,7 +429,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
 
     protected function modelForRow(RowView $row, RecordCollection $context, int $index): static
     {
-        $model = new static();
+        $model = $this->newInstance();
         $model->query = $this->query;
         $model->boundRow = $row;
         $model->boundContext = $context;
@@ -392,7 +445,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         }
         $row = $this->ensureCollection()->rowAt($this->manualIndex);
         if (!$row && $create) {
-            $row = new RowView(new RecordState(static::class, $this->tableName(), $this->primaryKeyName(), 'new'));
+            $row = new RowView(new RecordState($this->modelKey(), $this->tableName(), $this->primaryKeyName(), 'new'));
             $this->ensureCollection()->add($row);
             $this->manualIndex = $this->ensureCollection()->countLoaded() - 1;
         }
@@ -425,15 +478,15 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
 
     public function __get(string $name): mixed
     {
+        if ($name === 'table') {
+            return $this->tableName();
+        }
         $row = $this->currentRow();
         if ($row && $row->exposes($name) && array_key_exists($name, $row->state->attributes)) {
             return $this->attributeValue($row->state, $name);
         }
         if ($row && array_key_exists($name, $row->extras)) {
             return $row->extras[$name];
-        }
-        if ($name === 'table') {
-            return $this->tableName();
         }
         if (in_array($name, ['count', 'only_count'], true)) {
             return $this->count();
@@ -472,12 +525,12 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         }
         if (isset($this->metadata->columns()[$name])) {
             if (self::$strict && $row && !$row->exposes($name)) {
-                throw new MissingAttributeException("Attribute '{$name}' was not selected for " . static::class . '.');
+                throw new MissingAttributeException("Attribute '{$name}' was not selected for " . $this->modelLabel() . '.');
             }
             return null;
         }
         if (self::$strict) {
-            throw new UnknownAttributeOrRelationException("Unknown attribute or relation '{$name}' on " . static::class . '.');
+            throw new UnknownAttributeOrRelationException("Unknown attribute or relation '{$name}' on " . $this->modelLabel() . '.');
         }
         return null;
     }
@@ -494,7 +547,8 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
                     return;
                 }
             }
-        }        if ($value === null && $this->canResolveRelation($name)) {
+        }
+        if ($value === null && $this->canResolveRelation($name)) {
             $row->state->set($name . '_id', null);
             unset($row->state->relationCache[$name]);
             return;
@@ -600,9 +654,9 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         return 'default:' . spl_object_id($connection);
     }
 
-    protected static function metadataFor(string $class): ModelMetadata
+    protected static function metadataFor(string $key, ?string $table = null): ModelMetadata
     {
-        return self::$metadataCache[$class] ??= new ModelMetadata($class);
+        return self::$metadataCache[$key] ??= new ModelMetadata($table === null ? $key : static::class, $table);
     }
 
     protected static function identity(): IdentityMap
@@ -737,12 +791,80 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         return Inflector::singular($word);
     }
 
+    public static function mapTable(string $table, string $modelClass): void
+    {
+        MySqlGrammar::assertIdentifier($table);
+        if (!class_exists($modelClass)) {
+            throw new \InvalidArgumentException("Mapped model class {$modelClass} does not exist.");
+        }
+        if (!is_subclass_of($modelClass, self::class)) {
+            throw new \InvalidArgumentException("Mapped model class {$modelClass} must extend " . self::class . '.');
+        }
+        self::$tableModelMap[$table] = $modelClass;
+        self::$classTableMap[$modelClass] = $table;
+    }
+
+    public static function unmapTable(string $table): void
+    {
+        MySqlGrammar::assertIdentifier($table);
+        $modelClass = self::$tableModelMap[$table] ?? null;
+        unset(self::$tableModelMap[$table]);
+        if ($modelClass !== null && (self::$classTableMap[$modelClass] ?? null) === $table) {
+            unset(self::$classTableMap[$modelClass]);
+        }
+    }
+
+    public static function clearTableMap(): void
+    {
+        self::$tableModelMap = [];
+        self::$classTableMap = [];
+    }
+
     public static function fromTable(string $table, string $suffix = ''): ActiveRecord
     {
-        $class = ucfirst(Inflector::singular($table)) . $suffix;
-        if (!class_exists($class) || !is_subclass_of($class, self::class)) {
-            throw new \Elveneek\Exception\MissingModelClassException("Model class {$class} for table {$table} does not exist.");
+        return self::modelForTableName($table, $suffix);
+    }
+
+    protected function modelForTable(string $table): ActiveRecord
+    {
+        return self::modelForTableName($table, '', static::class);
+    }
+
+    protected static function modelForTableName(string $table, string $suffix = '', ?string $contextClass = null): ActiveRecord
+    {
+        MySqlGrammar::assertIdentifier($table);
+        $mappedClass = self::$tableModelMap[$table] ?? null;
+        if ($mappedClass !== null) {
+            return self::mappedModelForTable($table, $mappedClass);
         }
-        return new $class();
+        $class = self::activeRecordClassForTable($table, $suffix, $contextClass);
+        return $class !== null ? new $class() : TableRecord::forTable($table);
+    }
+
+    protected static function mappedModelForTable(string $table, string $class): ActiveRecord
+    {
+        if ($class === TableRecord::class) {
+            return TableRecord::forTable($table);
+        }
+        $model = new $class();
+        return $model->useRuntimeTable($table);
+    }
+
+    protected static function activeRecordClassForTable(string $table, string $suffix = '', ?string $contextClass = null): ?string
+    {
+        $short = ucfirst(Inflector::singular($table)) . $suffix;
+        $classes = [$short];
+        if ($contextClass !== null && $contextClass !== self::class && $contextClass !== TableRecord::class) {
+            $namespace = (new \ReflectionClass($contextClass))->getNamespaceName();
+            if ($namespace !== '') {
+                array_unshift($classes, $namespace . '\\' . $short);
+            }
+        }
+        foreach (array_values(array_unique($classes)) as $class) {
+            if (class_exists($class) && is_subclass_of($class, self::class)) {
+                return $class;
+            }
+        }
+        return null;
     }
 }

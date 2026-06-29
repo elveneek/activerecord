@@ -8,12 +8,15 @@ final class ModelMetadata
 {
     private ?array $columnsCache = null;
 
-    public function __construct(public readonly string $modelClass)
+    public function __construct(public readonly string $modelClass, public readonly ?string $tableOverride = null)
     {
     }
 
     public function table(): string
     {
+        if ($this->tableOverride !== null) {
+            return $this->tableOverride;
+        }
         $configured = $this->staticProperty('table');
         if (is_string($configured) && $configured !== '') {
             return $configured;

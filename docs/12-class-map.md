@@ -8,6 +8,7 @@
 | --- | --- |
 | `src/Elveneek/ActiveRecord.php` | Главный публичный фасад модели. Собирает traits, хранит query, collection, bound row, metadata, кэши, `connect()`, `find()`, magic access, casts/accessors/relation routing. |
 | `src/Elveneek/DB.php` | Статический сервис подключения, resolver внешнего `PDO`, query builder, raw expressions, SQL execution, query log, транзакции и `afterCommit()`. |
+| `src/Elveneek/TableRecord.php` | Generic ActiveRecord-модель для работы с таблицей без отдельного PHP-класса и без runtime `eval`. |
 | `src/Elveneek/SchemaMode.php` | Enum `Strict`, `Suggest`, `Evolve` для управления auto schema evolution. |
 | `src/Elveneek/PDOProxy.php` | PDO-наследник для auto reconnect при MySQL `server has gone away`. |
 | `src/Elveneek/Scaffold.php` | Legacy API создания/переименования колонок и создания таблиц. Используется schema evolution. |
@@ -68,7 +69,7 @@
 | `InvalidIdentifierException` | Небезопасное имя таблицы/колонки/alias в структурном SQL API. |
 | `MassAssignmentException` | `fill()` вызван без `$fillable` и без `only`. |
 | `MissingAttributeException` | Strict mode: поле есть в таблице, но не выбрано в partial select. |
-| `MissingModelClassException` | `fromTable()` не нашел класс модели. |
+| `MissingModelClassException` | Зарезервировано для случаев, когда модель таблицы не может быть создана. Обычно `fromTable()` использует `TableRecord` fallback. |
 | `ModelNotFoundException` | `findOrFail()` или `firstOrFail()` ничего не нашли. |
 | `QueryException` | Ошибка SQL; хранит SQL и bindings. |
 | `ReadOnlyRecordException` | Попытка сохранить persisted projection без primary key. |

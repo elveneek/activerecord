@@ -202,14 +202,24 @@ Product::schemaEvolution(true);  // разрешить auto-create
 $products = ActiveRecord::fromTable('products');
 ```
 
-Метод ожидает, что существует класс для этой таблицы (`Product`) и что он наследуется от `ActiveRecord`. Если класса нет, будет `MissingModelClassException`.
+Если существует класс для этой таблицы (`Product`) и он наследуется от `ActiveRecord`, будет создан объект этого класса. Если класса нет или имя занято чужим классом, будет создан generic table model (`Elveneek\TableRecord`) для таблицы `products`. Для конфликтов имен можно явно привязать таблицу к другому AR-классу через `ActiveRecord::mapTable('products', ProductRecord::class)`.
 
-Второй аргумент добавляет суффикс к имени класса:
+```php
+$title = ActiveRecord::fromTable('categories')
+    ->find(1)
+    ->products
+    ->limit(1)
+    ->title;
+```
+
+Второй аргумент по-прежнему добавляет суффикс к имени класса-кандидата:
 
 ```php
 $products = ActiveRecord::fromTable('products', 'Archive');
-// ожидает класс ProductArchive
+// сначала ищет ProductArchive, затем fallback на generic table model
 ```
+
+Подробнее: [Generic table models](14-generic-table-models.md).
 
 ## Схема и колонки
 

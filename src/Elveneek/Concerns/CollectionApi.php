@@ -143,7 +143,7 @@ trait CollectionApi
         if ($state->isDirty() && !$force) {
             throw new \LogicException('Cannot refresh a dirty record without force: true.');
         }
-        $fresh = (new static())->findOne($state->key())->withoutCache()->firstOrFail();
+        $fresh = $this->newInstance()->findOne($state->key())->withoutCache()->firstOrFail();
         $attributes = $fresh->currentRow()->state->attributes;
         $state->attributes = $state->original = $attributes;
         $state->dirty = [];
@@ -187,7 +187,7 @@ trait CollectionApi
     protected function serializeRow(RowView $row): array
     {
         static $serializationStack = [];
-        $identity = static::class . ':' . ($row->state->key() ?? spl_object_id($row));
+        $identity = $this->modelKey() . ':' . ($row->state->key() ?? spl_object_id($row));
         if (isset($serializationStack[$identity])) {
             return [$this->primaryKeyName() => $row->state->key()];
         }
@@ -264,7 +264,7 @@ trait CollectionApi
         }
         $slices = [];
         foreach (array_chunk($rows, $size) as $chunk) {
-            $slice = new static();
+            $slice = $this->newInstance();
             $slice->collection = $slice->newCollection($chunk, true);
             $slices[] = $slice;
         }
