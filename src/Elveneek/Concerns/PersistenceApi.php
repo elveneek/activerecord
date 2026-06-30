@@ -12,10 +12,10 @@ use Elveneek\Scaffold;
 
 trait PersistenceApi
 {
-    public static function create(array $attributes = []): static
+    protected function newRecord(array $attributes = []): static
     {
-        $model = new static();
-        $state = new RecordState(static::class, $model->tableName(), $model->primaryKeyName(), 'new');
+        $model = $this->newInstance();
+        $state = new RecordState($model->modelKey(), $model->tableName(), $model->primaryKeyName(), 'new');
         foreach ($attributes as $field => $value) {
             $state->set((string) $field, $value);
         }
@@ -25,12 +25,12 @@ trait PersistenceApi
 
     public static function insert(array $attributes): static
     {
-        return static::create($attributes)->save();
+        return (new static())->newRecord($attributes)->save();
     }
 
     public static function insertAll(array $rows): static
     {
-        $model = static::create();
+        $model = (new static())->newRecord();
         foreach ($rows as $row) {
             $model->addRow($row);
         }
@@ -350,12 +350,12 @@ trait PersistenceApi
 
     protected function firstOrCreate(array $where, array $values = []): static
     {
-        return $this->where($where)->first() ?? static::create(array_merge($where, $values))->save();
+        return $this->where($where)->first() ?? $this->newRecord(array_merge($where, $values))->save();
     }
 
     protected function updateOrCreate(array $where, array $values = []): static
     {
-        $model = $this->where($where)->first() ?? static::create($where);
+        $model = $this->where($where)->first() ?? $this->newRecord($where);
         return $model->forceFill($values)->save();
     }
 

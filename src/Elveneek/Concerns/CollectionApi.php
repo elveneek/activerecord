@@ -94,7 +94,7 @@ trait CollectionApi
 
     public function setRaw(string $field, mixed $value): static
     {
-        $this->currentRow(true)->state->set($field, $value);
+        $this->currentRowForWrite()->state->set($field, $value);
         return $this;
     }
 

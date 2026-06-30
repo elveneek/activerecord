@@ -184,6 +184,11 @@ $created = Product::create([
     'price' => 1500,
 ])->save();
 
+$created = (new Product())->new([
+    'title' => 'New product',
+    'price' => 1500,
+])->save();
+
 // Связь по products.category_id
 echo Product::find(1)->category->title;
 

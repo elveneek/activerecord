@@ -4,6 +4,7 @@ namespace Elveneek;
 
 use Elveneek\Cache\IdentityMap;
 use Elveneek\Exception\DirtyResultCannotBeRequeriedException;
+use Elveneek\Exception\AmbiguousWriteException;
 use Elveneek\Exception\MissingAttributeException;
 use Elveneek\Exception\ModelNotFoundException;
 use Elveneek\Exception\UnknownAttributeOrRelationException;
@@ -25,6 +26,7 @@ if (!defined('SQL_NULL')) {
  * @method static static where(mixed ...$arguments)
  * @method static static whereIn(string $column, iterable $values)
  * @method static static orderBy(string $column, string $direction = 'asc')
+ * @method static static create(array $attributes = [])
  */
 abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggregate, \JsonSerializable
 {
@@ -161,6 +163,13 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         }
         if ($name === 'stub') {
             return $this->changeQuery($this->query->whereRaw('0 = 1'));
+        }
+        if ($name === 'create' || $name === 'new') {
+            $attributes = $arguments[0] ?? [];
+            if (!is_array($attributes)) {
+                throw new \InvalidArgumentException("{$this->modelLabel()}::{$name}() expects an attribute array.");
+            }
+            return $this->newRecord($attributes);
         }
         if ($originalName === 'order_by' && isset($arguments[0]) && $this->isLegacyOrder((string) $arguments[0])) {
             return $this->legacyOrder((string) $arguments[0]);
@@ -452,6 +461,36 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         return $row;
     }
 
+    protected function currentRowForWrite(): RowView
+    {
+        if ($this->boundRow) {
+            return $this->boundRow;
+        }
+        if ($this->collection === null && $this->isUnfilteredRootQuery()) {
+            throw new AmbiguousWriteException(
+                'Cannot write to an unfiltered query; call create()/new() for a new row or select one row first.'
+            );
+        }
+        $row = $this->currentRow();
+        if (!$row) {
+            throw new AmbiguousWriteException(
+                'Cannot write without a current row; call create()/new() for a new row or select one row first.'
+            );
+        }
+        return $row;
+    }
+
+    protected function isUnfilteredRootQuery(): bool
+    {
+        return $this->query->lookupIds === null
+            && $this->query->wheres === []
+            && $this->query->joins === []
+            && $this->query->groups === []
+            && $this->query->havings === []
+            && $this->query->limitValue === null
+            && $this->query->offsetValue === null;
+    }
+
     protected function selectedColumns(): array
     {
         if ($this->query->columns === [] || in_array('*', $this->query->columns, true) || in_array($this->tableName() . '.*', $this->query->columns, true)) {
@@ -480,6 +519,9 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     {
         if ($name === 'table') {
             return $this->tableName();
+        }
+        if ($name === 'new') {
+            return $this->__call('new', []);
         }
         $row = $this->currentRow();
         if ($row && $row->exposes($name) && array_key_exists($name, $row->state->attributes)) {
@@ -537,7 +579,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
 
     public function __set(string $name, mixed $value): void
     {
-        $row = $this->currentRow(true);
+        $row = $this->currentRowForWrite();
         if ($value === null && method_exists($this, $name)) {
             $method = new \ReflectionMethod($this, $name);
             if (!str_starts_with($method->getDeclaringClass()->getName(), 'Elveneek\\')) {

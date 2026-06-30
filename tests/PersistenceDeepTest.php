@@ -40,6 +40,47 @@ test('create builds a new record without persisting until save', function () {
         ->and(PersistenceItem::all()->count())->toBe(0);
 });
 
+test('create is available statically and from query instances', function () {
+    PersistenceItem::create(['sku' => 'static', 'title' => 'Static create'])->save();
+    (new PersistenceItem())->create(['sku' => 'instance', 'title' => 'Instance create'])->save();
+
+    expect(PersistenceItem::orderBy('sku')->pluck('title'))->toBe(['Instance create', 'Static create']);
+});
+
+test('new method and property create explicit draft rows', function () {
+    (new PersistenceItem())->new(['sku' => 'method', 'title' => 'Method new'])->save();
+
+    $item = (new PersistenceItem())->new;
+    $item->sku = 'property';
+    $item->title = 'Property new';
+    $item->save();
+
+    expect(PersistenceItem::orderBy('sku')->pluck('title'))->toBe(['Method new', 'Property new']);
+});
+
+test('an unfiltered query is not implicitly turned into a writable row', function () {
+    $original = PersistenceItem::insert(['sku' => 'first', 'title' => 'Original']);
+    $query = new PersistenceItem();
+
+    expect(function () use ($query): void {
+        $query->title = 'Accidental write';
+    })->toThrow(\Elveneek\Exception\AmbiguousWriteException::class);
+
+    PersistenceItem::flushIdentityCache();
+    expect(PersistenceItem::findOrFail($original->id)->title)->toBe('Original')
+        ->and(PersistenceItem::all()->count())->toBe(1);
+});
+
+test('a filtered empty query is not implicitly turned into a new row', function () {
+    $query = PersistenceItem::where('sku', 'missing');
+
+    expect(function () use ($query): void {
+        $query->title = 'Accidental insert';
+    })->toThrow(\Elveneek\Exception\AmbiguousWriteException::class);
+
+    expect(PersistenceItem::all()->count())->toBe(0);
+});
+
 test('insert persists immediately and returns the saved model', function () {
     $item = PersistenceItem::insert(['sku' => 'a', 'title' => 'Stored']);
 

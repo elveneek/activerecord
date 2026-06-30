@@ -26,6 +26,39 @@ class Product extends SomeOtherOrmModel {}
 $product = ActiveRecord::fromTable('products'); // Elveneek\TableRecord для таблицы products
 ```
 
+
+## Создание Строк Без Класса
+
+Для generic-модели работает тот же явный draft-режим. `fromTable()` возвращает query-объект, а новая строка появляется после `create()`, `new()` или property-алиаса `new`:
+
+```php
+ActiveRecord::fromTable('products')
+    ->create(['title' => 'New product'])
+    ->save();
+
+ActiveRecord::fromTable('products')
+    ->new(['title' => 'New product'])
+    ->save();
+
+$product = ActiveRecord::fromTable('products')->new;
+$product->title = 'New product';
+$product->save();
+```
+
+Практический пример для таблицы без отдельного класса:
+
+```php
+$generation = ActiveRecord::fromTable('llm_generations')
+    ->create([
+        'product_id' => $data['product_id'],
+    ])
+    ->save();
+
+echo $generation->id;
+```
+
+`stub()` остается пустым query-результатом и не создает draft-row. Для insert-сценариев используйте `create()` или `new()`.
+
 ## Явная Привязка Таблицы К Классу
 
 Если имя `Product` уже занято системной ORM, но для таблицы `products` нужна своя ActiveRecord-модель с методами, привяжите таблицу явно:

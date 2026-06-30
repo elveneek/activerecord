@@ -20,7 +20,7 @@
 | --- | --- |
 | `src/Elveneek/Concerns/QueryApi.php` | `toQuery()`, `fromQuery()`, `first()`, `count()`, `paginate()`, `pluck()`, `load()`, агрегаты, diagnostics, chunking. |
 | `src/Elveneek/Concerns/CollectionApi.php` | `Iterator`, `ArrayAccess`, `toArray()`, `toJson()`, dirty tracking, `refresh()`, `tree()`, raw access. |
-| `src/Elveneek/Concerns/PersistenceApi.php` | `create()`, `insert()`, `save()`, `saveAll()`, `fill()`, `updateAll()`, `delete()`, `truncate()`, `upsert()`. |
+| `src/Elveneek/Concerns/PersistenceApi.php` | создание draft-row для magic `create()`/`new()`, `insert()`, `save()`, `saveAll()`, `fill()`, `updateAll()`, `delete()`, `truncate()`, `upsert()`. |
 | `src/Elveneek/Concerns/RelationsApi.php` | Автоматические связи по колонкам, `_relation`, `related()`, `allLinked()`, relation join, eager loading. |
 | `src/Elveneek/Concerns/ExplicitRelationsApi.php` | Ручные `belongsTo()`, `hasMany()`, `belongsToMany()`. |
 | `src/Elveneek/Concerns/RelationQueryApi.php` | `has()`, `doesntHave()`, `whereHas()`, `whereDoesntHave()`. |

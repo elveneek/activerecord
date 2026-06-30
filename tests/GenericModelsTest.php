@@ -91,7 +91,7 @@ test('native inferred casts do not trigger project autoloaders', function () {
     spl_autoload_register($loader);
 
     try {
-        $product = \Elveneek\ActiveRecord::fromTable('generic_products')->stub();
+        $product = \Elveneek\ActiveRecord::fromTable('generic_products')->new();
         $product->generic_category_id = '1';
         $product->title = 'Autoload safe';
         $product->save();
@@ -111,6 +111,16 @@ test('mapTable binds a table to an explicit ActiveRecord class', function () {
         ->and($product->decoratedTitle())->toBe('mapped:Generic product');
 });
 
+test('mapped classes can create rows through the magic static create', function () {
+    \Elveneek\ActiveRecord::mapTable('generic_products', GenericProductRecord::class);
+
+    $product = GenericProductRecord::create(['title' => 'Mapped create'])->save();
+
+    expect($product)->toBeInstanceOf(GenericProductRecord::class)
+        ->and($product->table)->toBe('generic_products')
+        ->and(GenericProductRecord::where('title', 'Mapped create')->count())->toBe(1);
+});
+
 test('relations prefer an explicit table map over the generic fallback', function () {
     \Elveneek\ActiveRecord::mapTable('generic_products', GenericProductRecord::class);
 
@@ -118,6 +128,26 @@ test('relations prefer an explicit table map over the generic fallback', functio
 
     expect($product)->toBeInstanceOf(GenericProductRecord::class)
         ->and($product->decoratedTitle())->toBe('mapped:Generic product');
+});
+
+test('generic table models can create rows through create and new aliases', function () {
+    \Elveneek\ActiveRecord::fromTable('generic_products')
+        ->create(['title' => 'Generic create'])
+        ->save();
+
+    \Elveneek\ActiveRecord::fromTable('generic_products')
+        ->new(['title' => 'Generic new method'])
+        ->save();
+
+    $product = \Elveneek\ActiveRecord::fromTable('generic_products')->new;
+    $product->title = 'Generic new property';
+    $product->save();
+
+    expect(\Elveneek\ActiveRecord::fromTable('generic_products')->whereIn('title', [
+        'Generic create',
+        'Generic new method',
+        'Generic new property',
+    ])->count())->toBe(3);
 });
 
 test('generic table models keep identity map state separated by table', function () {

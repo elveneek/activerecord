@@ -28,6 +28,24 @@ $product = Product::create([
 
 `create()` только создает new-модель в памяти. SQL `INSERT` выполняется при `save()` или `saveAll()`.
 
+Тот же режим можно включить от экземпляра. Это удобно для старого стиля, где `(new Product())` сначала означает запрос/коллекцию, а новая строка появляется только после явной команды:
+
+```php
+$product = (new Product())->create([
+    'title' => 'New product',
+])->save();
+
+$product = (new Product())->new([
+    'title' => 'New product',
+])->save();
+
+$product = (new Product())->new;
+$product->title = 'New product';
+$product->save();
+```
+
+`new()` и property-форма `new` являются синонимами `create()` для создания draft-row. Простой `new Product()` остается запросом: его можно итерировать и считать, но он не превращается в insert сам по себе.
+
 `insert()` - короткая форма `create(...)->save()`:
 
 ```php
