@@ -80,6 +80,27 @@ test('generic table models can be the source side of inferred relations', functi
     expect($title)->toBe('Generic category');
 });
 
+test('native inferred casts do not trigger project autoloaders', function () {
+    $autoloaded = [];
+    $loader = function (string $class) use (&$autoloaded): void {
+        $autoloaded[] = $class;
+        if ($class === 'int') {
+            throw new \RuntimeException('autoloaded int');
+        }
+    };
+    spl_autoload_register($loader);
+
+    try {
+        $product = \Elveneek\ActiveRecord::fromTable('generic_products')->stub();
+        $product->generic_category_id = '1';
+        $product->title = 'Autoload safe';
+        $product->save();
+    } finally {
+        spl_autoload_unregister($loader);
+    }
+
+    expect($autoloaded)->not->toContain('int');
+});
 test('mapTable binds a table to an explicit ActiveRecord class', function () {
     \Elveneek\ActiveRecord::mapTable('generic_products', GenericProductRecord::class);
 

@@ -81,13 +81,18 @@ final class ModelMetadata
                 default => null,
             };
         }
-        if (is_string($cast) && enum_exists($cast) && is_subclass_of($cast, \BackedEnum::class)) {
-            return $database ? ($value instanceof \BackedEnum ? $value->value : $value) : $cast::from($value);
-        }
         if (is_object($cast) && method_exists($cast, $database ? 'set' : 'get')) {
             return $cast->{$database ? 'set' : 'get'}($value, $field, $this->modelClass);
         }
-        $type = strtolower((string) $cast);
+        $type = is_string($cast) ? strtolower($cast) : '';
+        $nativeCasts = [
+            '', 'int', 'integer', 'float', 'double', 'real', 'bool', 'boolean',
+            'string', 'json', 'array', 'datetime', 'date',
+        ];
+        $isNativeCast = in_array($type, $nativeCasts, true) || str_starts_with($type, 'decimal');
+        if (is_string($cast) && !$isNativeCast && enum_exists($cast) && is_subclass_of($cast, \BackedEnum::class)) {
+            return $database ? ($value instanceof \BackedEnum ? $value->value : $value) : $cast::from($value);
+        }
         if (str_starts_with($type, 'decimal')) {
             $scale = (int) (explode(':', $type, 2)[1] ?? 2);
             return $this->formatDecimal($value, $scale);
