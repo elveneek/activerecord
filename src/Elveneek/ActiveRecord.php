@@ -55,6 +55,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     protected int $boundIndex = 0;
     protected int $manualIndex = 0;
     protected ModelMetadata $metadata;
+    protected string $resolvedTableName = '';
     protected string $cacheSourceValue = 'database';
     protected int $affectedRowsValue = 0;
     protected array $lastSaveErrorsValue = [];
@@ -92,7 +93,8 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     protected function initializeModel(): void
     {
         $this->metadata = self::metadataFor($this->metadataKey(), $this->metadataTableOverride());
-        $this->query = new QueryBuilder($this->tableName(), $this->modelKey(), $this->primaryKeyName());
+        $this->resolvedTableName = $this->metadata->table();
+        $this->query = new QueryBuilder($this->resolvedTableName, $this->modelKey(), $this->primaryKeyName());
         $defaultOrder = $this->configuredStatic('defaultOrder');
         if (is_string($defaultOrder) && $defaultOrder !== '') {
             $this->query = $this->query->orderBy($defaultOrder);
@@ -525,6 +527,9 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         }
         $row = $this->currentRow();
         if ($row && $row->exposes($name) && array_key_exists($name, $row->state->attributes)) {
+            if ($this->modelPropertyMethod($name)) {
+                return $this->modelPropertyValue($name);
+            }
             return $this->attributeValue($row->state, $name);
         }
         if ($row && array_key_exists($name, $row->extras)) {
@@ -555,12 +560,8 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
         if (str_contains($name, '_as_') && !isset($this->metadata->columns()[$name])) {
             return $this->formatAttributeAs($name);
         }
-        if (method_exists($this, $name)) {
-            $method = new \ReflectionMethod($this, $name);
-            if ($method->getNumberOfRequiredParameters() === 0 && !str_starts_with($method->getDeclaringClass()->getName(), 'Elveneek\\')) {
-                $value = $this->{$name}();
-                return $value instanceof Relations\RelationDefinition ? $value->get() : $value;
-            }
+        if ($this->modelPropertyMethod($name)) {
+            return $this->modelPropertyValue($name);
         }
         if ($this->canResolveRelation($name)) {
             return $this->related($name);
@@ -616,6 +617,9 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
 
     public function __isset(string $name): bool
     {
+        if ($name === 'table') {
+            return true;
+        }
         $row = $this->currentRow();
         return ($row && (array_key_exists($name, $row->state->attributes) || array_key_exists($name, $row->extras)))
             || isset($this->metadata->columns()[$name]) || $this->canResolveRelation($name) || method_exists($this, $name);
@@ -625,6 +629,24 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
     {
         $accessor = $this->accessorName($field);
         return method_exists($this, $accessor) ? $this->{$accessor}() : $state->attributes[$field];
+    }
+
+    protected function modelPropertyMethod(string $name): ?\ReflectionMethod
+    {
+        if (!method_exists($this, $name)) {
+            return null;
+        }
+        $method = new \ReflectionMethod($this, $name);
+        if ($method->getNumberOfRequiredParameters() > 0 || str_starts_with($method->getDeclaringClass()->getName(), 'Elveneek\\')) {
+            return null;
+        }
+        return $method;
+    }
+
+    protected function modelPropertyValue(string $name): mixed
+    {
+        $value = $this->{$name}();
+        return $value instanceof Relations\RelationDefinition ? $value->get() : $value;
     }
 
     protected function formatAttributeAs(string $name): mixed
@@ -670,7 +692,7 @@ abstract class ActiveRecord implements \ArrayAccess, \Countable, \IteratorAggreg
 
     protected function tableName(): string
     {
-        return $this->metadata->table();
+        return $this->resolvedTableName;
     }
 
     protected function primaryKeyName(): string

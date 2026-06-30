@@ -30,6 +30,19 @@ trait FluentApi
 
     public function get(string $field, bool $multilang = false): mixed
     {
+        $row = $this->currentRow();
+        if ($row && $row->exposes($field) && array_key_exists($field, $row->state->attributes)) {
+            return $row->state->attributes[$field];
+        }
+        if ($row && array_key_exists($field, $row->extras)) {
+            return $row->extras[$field];
+        }
+        if (isset($this->metadata->columns()[$field])) {
+            if (self::$strict && $row && !$row->exposes($field)) {
+                throw new \Elveneek\Exception\MissingAttributeException("Attribute '{$field}' was not selected for " . $this->modelLabel() . '.');
+            }
+            return null;
+        }
         return $this->__get($field);
     }
 

@@ -16,6 +16,38 @@ beforeAll(function () {
     }
 });
 
+if (!class_exists('BasicFindProductWithTextMethod')) {
+    class BasicFindProductWithTextMethod extends \Elveneek\ActiveRecord
+    {
+        protected static string $table = 'products';
+
+        public function text(): string
+        {
+            return 'blabla';
+        }
+
+        public function about(): array
+        {
+            return [
+                'property' => $this->text,
+                'stored' => $this->get('text'),
+            ];
+        }
+    }
+}
+
+if (!class_exists('BasicFindProductWithTableMethod')) {
+    class BasicFindProductWithTableMethod extends \Elveneek\ActiveRecord
+    {
+        protected static string $table = 'products';
+
+        public function table(): string
+        {
+            return 'method-table';
+        }
+    }
+}
+
 test('basic static calls and fabrics', function () {
     expect(Product::find(2)->id)->toBe(2);
     expect(Product::f(2)->id)->toBe(2);
@@ -33,6 +65,35 @@ test('basic static calls and fabrics', function () {
     expect(Product::all()->w("id", 1)->id)->toBe(1);
     
     expect(\Elveneek\ActiveRecord::fromTable("products")->w("id", 1)->title)->toBe("First product");
+});
+
+test('model method properties override same named database columns', function () {
+    $product = BasicFindProductWithTextMethod::find(1);
+
+    expect($product->text)->toBe('blabla')
+        ->and($product->get('text'))->toBeNull()
+        ->and($product->about)->toBe([
+            'property' => 'blabla',
+            'stored' => null,
+        ]);
+});
+
+test('table property exposes the resolved table name for every model shape', function () {
+    $query = BasicFindProductWithTableMethod::all();
+    $row = BasicFindProductWithTableMethod::find(1);
+    $draft = BasicFindProductWithTableMethod::new(['title' => 'Draft']);
+    $generic = \Elveneek\ActiveRecord::fromTable('no_such_table');
+
+    expect(BasicFindProductWithTableMethod::all()->table)->toBe('products')
+        ->and($row->table)->toBe('products')
+        ->and($draft->table)->toBe('products')
+        ->and($generic->table)->toBe('no_such_table')
+        ->and($query['table'])->toBe('products')
+        ->and($row['table'])->toBe('products')
+        ->and($draft['table'])->toBe('products')
+        ->and($generic['table'])->toBe('no_such_table')
+        ->and(isset($query['table']))->toBeTrue()
+        ->and(isset($generic['table']))->toBeTrue();
 });
 
 test('by_id test', function () {

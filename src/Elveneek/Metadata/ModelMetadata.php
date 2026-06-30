@@ -7,6 +7,7 @@ use Elveneek\ActiveRecord;
 final class ModelMetadata
 {
     private ?array $columnsCache = null;
+    private ?string $tableCache = null;
 
     public function __construct(public readonly string $modelClass, public readonly ?string $tableOverride = null)
     {
@@ -14,15 +15,18 @@ final class ModelMetadata
 
     public function table(): string
     {
+        if ($this->tableCache !== null) {
+            return $this->tableCache;
+        }
         if ($this->tableOverride !== null) {
-            return $this->tableOverride;
+            return $this->tableCache = $this->tableOverride;
         }
         $configured = $this->staticProperty('table');
         if (is_string($configured) && $configured !== '') {
-            return $configured;
+            return $this->tableCache = $configured;
         }
         $short = (new \ReflectionClass($this->modelClass))->getShortName();
-        return Inflector::plural(Inflector::snake($short));
+        return $this->tableCache = Inflector::plural(Inflector::snake($short));
     }
 
     public function primaryKey(): string
