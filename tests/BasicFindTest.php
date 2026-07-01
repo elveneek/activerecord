@@ -78,6 +78,23 @@ test('model method properties override same named database columns', function ()
         ]);
 });
 
+test('empty on magic properties respects isset and resolved values', function () {
+    $product = Product::find(1);
+    $decorated = BasicFindProductWithTextMethod::find(1);
+
+    expect(empty($product->title))->toBeFalse()
+        ->and(empty($product->menu_id))->toBeTrue()
+        ->and(empty($product->totally_unknown))->toBeTrue()
+        ->and(empty($decorated->text))->toBeFalse();
+});
+
+test('isset on a magic property reports selected null columns as present', function () {
+    $product = Product::find(1);
+
+    expect($product->menu_id)->toBeNull()
+        ->and(isset($product->menu_id))->toBeTrue();
+});
+
 test('table property exposes the resolved table name for every model shape', function () {
     $query = BasicFindProductWithTableMethod::all();
     $row = BasicFindProductWithTableMethod::find(1);

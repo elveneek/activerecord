@@ -61,6 +61,17 @@ class RoadmapScopedProduct extends \Elveneek\ActiveRecord
         return $this->where('sort', '>=', $from);
     }
 }
+
+class RoadmapBaseUser extends \Elveneek\ActiveRecord
+{
+    protected static string $table = 'roadmap_users';
+}
+
+class RoadmapModerator extends RoadmapBaseUser
+{
+    protected static string $table = 'roadmap_moderators';
+}
+
 beforeEach(function () {
     if (!isset($_ENV['DB_HOST'])) {
         Dotenv\Dotenv::createImmutable(__DIR__)->load();
@@ -109,6 +120,39 @@ test('primary key is integer both after select and immediately after insert', fu
         ->and($inserted->id)->toBeInt()->toBe(6)
         ->and($inserted->insert_id)->toBeInt()->toBe(6);
 });
+
+test('subclassed models can use their own table without single table inheritance type magic', function () {
+    \Elveneek\ActiveRecord::$db->exec('DROP TABLE IF EXISTS roadmap_users');
+    \Elveneek\ActiveRecord::$db->exec('DROP TABLE IF EXISTS roadmap_moderators');
+    \Elveneek\ActiveRecord::$db->exec(
+        'CREATE TABLE roadmap_users ('
+        . 'id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, '
+        . 'name VARCHAR(255) NULL, '
+        . 'type VARCHAR(255) NULL'
+        . ') ENGINE=InnoDB DEFAULT CHARSET=utf8'
+    );
+    \Elveneek\ActiveRecord::$db->exec(
+        'CREATE TABLE roadmap_moderators ('
+        . 'id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, '
+        . 'name VARCHAR(255) NULL, '
+        . 'type VARCHAR(255) NULL'
+        . ') ENGINE=InnoDB DEFAULT CHARSET=utf8'
+    );
+    \Elveneek\ActiveRecord::flushSchemaCache();
+    \Elveneek\ActiveRecord::flushIdentityCache();
+
+    $moderator = RoadmapModerator::create(['name' => 'Ada'])->save();
+
+    $users = (int) \Elveneek\ActiveRecord::$db->query('SELECT COUNT(*) FROM roadmap_users')->fetchColumn();
+    $storedType = \Elveneek\ActiveRecord::$db->query('SELECT type FROM roadmap_moderators WHERE id = 1')->fetchColumn();
+
+    expect($moderator)->toBeInstanceOf(RoadmapModerator::class)
+        ->and($moderator->table)->toBe('roadmap_moderators')
+        ->and($moderator->type)->toBeNull()
+        ->and($users)->toBe(0)
+        ->and($storedType)->toBeNull();
+});
+
 test('fillable protects fill while explicit only and forceFill can override it', function () {
     $product = RoadmapProtectedProduct::findOrFail(1);
 
